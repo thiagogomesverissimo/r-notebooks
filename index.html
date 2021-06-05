@@ -1,6 +1,7 @@
 <html>
   <body>
-    <a href="https://github.com/thiagogomesverissimo/r-notebooks"> Códigos em R </a>
+    <a href="https://github.com/thiagogomesverissimo/r-notebooks"> Repositório no github </a>
+    <div id="htmls"></div>
     <br>
     <script>
       (async () => {
@@ -8,11 +9,14 @@
         const data = await response.json();
         let htmlString = '<ul>';
         for (let file of data) {
-          if(file.name.includes(".html"))
-            htmlString += `<li><a href="${file.path}">${file.name}</a></li>`;
+          if(file.name.includes(".html") & file.name != "index.html") {
+            htmlString += `<li><a href="${file.path}">${file.name}</a> - `;
+            Rmd_name = file.name.replace('.html','.Rmd');
+            htmlString += `<a href="https://github.com/thiagogomesverissimo/r-notebooks/blob/main/${Rmd_name}">${Rmd_name}</a></li>`;
+          }
         }
         htmlString += '</ul>';
-        document.getElementsByTagName('body')[0].innerHTML = htmlString;
+        document.getElementById('htmls').innerHTML = htmlString;
       })()
     </script>
   <body>
