@@ -1,0 +1,16 @@
+---
+title: "identify"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+library(ISLR)
+data(Auto)
+```
+
+```{r}
+plot(Auto$horsepower,Auto$mpg)
+identify(Auto$horsepower,Auto$mpg,Auto$name)
+```
