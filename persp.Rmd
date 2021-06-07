@@ -1,0 +1,29 @@
+---
+title: "persp"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+x=seq(-pi,pi,length=50)
+y=x
+f=outer(x,y,function(x,y) cos(y)/(1+x^2))
+fa=(f-t(f))/2
+```
+
+```{r}
+image(x,y,fa)
+```
+
+```{r}
+persp(x,y,fa)
+```
+
+```{r}
+persp(x,y,fa,theta=30)
+```
+
+```{r}
+persp(x,y,fa,theta=30,phi=70)
+```

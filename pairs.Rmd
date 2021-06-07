@@ -1,0 +1,13 @@
+---
+title: "pairs"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+library(ISLR)
+data(Auto)
+
+pairs(~ mpg + displacement + horsepower + weight + + acceleration, data = Auto)
+```

@@ -1,0 +1,21 @@
+---
+title: "boxplot"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+library(ISLR)
+data(Auto)
+
+Auto$cylinders = as.factor(Auto$cylinders)
+plot(Auto$cylinders, Auto$mpg, col="red")
+```
+
+```{r}
+plot(Auto$cylinders, Auto$mpg, col="red",varwidth=T, horizontal=T)
+```
+
+
+
