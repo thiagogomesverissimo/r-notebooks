@@ -1,20 +1,150 @@
 ---
-title: "R Notebook"
+title: "ggplot2"
 output:
   html_document:
     df_print: paged
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
-
-```{r}
-plot(cars)
+Bibliotecas usadas:
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(plotly)
+library(ggrepel)
+library(PerformanceAnalytics)
+library(reshape2)
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+### barplot
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+A coluna perfil é categórica e definimos a ordem das colunas no histograma passando um vetor para factor com a ordem desejada:
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+```{r}
+perfil = read.csv('data/perfil.csv')
+levels = c("Conservador","Moderado","Agressivo")
+perfil$perfil = factor(perfil$perfil, levels=levels)
+
+ggplot(data = perfil) + geom_bar(aes(x=perfil))
+```
+
+Adicionado diversas opções:
+
+```{r}
+ggplot(data = perfil) +
+  geom_bar(aes(x=perfil), fill="blue", color="red") +
+  geom_text(aes(x=perfil, label = ..count..), stat="count",vjust = -1) +
+  labs(title="Investidores",x="Categoria",y="Quantidade", caption="Banco Bom") +
+  theme_light() # para trocar o fundo
+```
+
+Rotacionado
+
+
+```{r}
+ggplot(data = perfil) +
+  geom_bar(aes(x=perfil), fill="blue", color="red") +
+  geom_text(aes(x=perfil, label = ..count..), stat="count",hjust = -1) +
+  labs(title="Investidores",x="Categoria",y="Quantidade", caption="Banco Bom") +
+  coord_flip() +
+  theme_light() # para trocar o fundo
+```
+
+
+### histograma
+
+histograma básico:
+```{r}
+sp = read.csv('data/sp.csv')
+ggplot(data = sp) + geom_histogram(aes(x=idh))
+```
+
+Histograma com mais opções:
+```{r}
+ggplot(data = sp) + 
+  geom_histogram(aes(x=idh), bins=100) +
+  theme_minimal()
+```
+
+### scatterplot
+
+Scatterplot básico:
+```{r}
+atlas = read.csv('data/atlas.csv')
+ggplot(data = atlas) + geom_point(aes(x=renda, y=escolaridade))
+```
+
+Estradificação usando a idade:
+```{r}
+ggplot(data = atlas) + geom_point(aes(x=renda, y=escolaridade,size=idade))
+```
+
+Estradificação usando a idade e mais uma dimensão de mortalidade:
+```{r}
+ggplot(data = atlas) + 
+  geom_point(aes(x=renda, y=escolaridade,size=idade,shape = mortalidade > 18)) +
+  theme_bw()
+```
+
+Adicionado linha de tendência:
+```{r}
+ggplot(data = atlas) + 
+  geom_point(aes(x=renda, y=escolaridade)) +
+  geom_smooth(aes(x=renda, y=escolaridade)) +
+  theme_bw()
+```
+
+Marcando os pontos com a idade usando a função geom_text_repel:
+```{r}
+ggplot(data = atlas) + 
+  geom_point(aes(x=renda, y=escolaridade)) +
+  geom_text_repel(aes(x = renda, y = escolaridade),label = atlas$idade) +
+  theme_bw()
+```
+
+Se ao invés de geom_text_repel usarmos ggplotly, asism quando passamos o mouse em cima é mostrada a idade:
+```{r}
+ggplotly(
+  ggplot(data = atlas) + geom_point(aes(x=renda, y=escolaridade, label = idade)) 
+)
+```
+
+Correlações das colunas 3 até a coluna 11 usando chart.Correlation :
+```{r}
+chart.Correlation(atlas[, 3:11], histogram = T)
+```
+
+Correlações usando ggplot:
+```{r}
+correlacoes <- cor(atlas[, 3:11])
+correlacoes <- melt(correlacoes)
+
+ggplot(correlacoes) +
+  geom_tile(aes(x = Var1, y = Var2, fill = value)) +
+  labs(x = NULL,y = NULL)
+```
+Trocando as cores:
+
+```{r}
+ggplot(correlacoes) +
+  geom_tile(aes(x = Var1, y = Var2, fill = value)) +
+  geom_text(aes(x = Var1, y = Var2, label = round(value,2))) +
+  labs(x = NULL,y = NULL) +
+  scale_fill_gradient2(low = "darkblue", 
+                       mid = "white", 
+                       high = "darkred",
+                       midpoint = 0)
+```
+### Boxplot
+
+```{r}
+atlas_long <- melt(atlas[, c(2,5,6)], id.vars = "distritos")
+ggplot(atlas_long) +
+  geom_boxplot(aes(x = variable, y = value, fill = variable))
+```
+
+### gráfico de linha
+
+Gráfico de linha básico:
+```{r}
+covid = read.csv('data/covid.csv')
+ggplot(data = covid) + geom_line(aes(x=t, y=cumulative_cases, color = country))
+```
