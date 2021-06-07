@@ -1,0 +1,15 @@
+---
+title: "dataframe"
+output: html_document
+---
+
+Leitura de um csv:
+```{r}
+worms = read.table('data/worms.csv',header = T, row.names=1, sep=",")
+print(worms)
+```
+
+Ordenado dataframe pela coluna Area (coluna 1) em ordem crescente:
+```{r}
+worms[order(worms$Area),]
+```

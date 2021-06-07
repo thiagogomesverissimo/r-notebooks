@@ -1,0 +1,17 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+data = read.table("data/yvalues.csv",header=T)
+print(data)
+```
+
+Histograma
+```{r}
+hist(data$y)
+```
+
