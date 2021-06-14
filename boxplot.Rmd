@@ -3,6 +3,7 @@ title: "boxplot"
 output:
   html_document:
     df_print: paged
+  word_document: default
 ---
 
 ```{r}
