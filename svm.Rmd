@@ -1,0 +1,115 @@
+---
+title: "Support Vector Machine"
+output:
+  html_document:
+    df_print: paged
+---
+## support vector classifier
+
+Criando dados com 20 observações de duas variáveis, V1 e V2 e uma variável resposta y:
+```{r}
+set.seed(10111)
+x=matrix(rnorm(40),20,2)
+y=rep(c(-1,1),c(10,10))
+x[y==1,]=x[y==1,]+1
+dat = data.frame(x,y=as.factor(y))
+plot(x,col=y+3,pch=19)
+```
+
+Criando um modelo svm linear (support vector classifier) com custo 1:
+```{r}
+library(e1071)
+modelo.linear = svm(y~.,data=dat,kernel="linear",cost=2,scale=F)
+summary(modelo.linear)
+```
+O número de support vectors selecionados para custo 2 foi 8. Agora aumentemos o custo para 10:
+
+```{r}
+library(e1071)
+modelo.linear = svm(y~.,data=dat,kernel="linear",cost=10,scale=F)
+summary(modelo.linear)
+```
+O número de support vector com custo 10 diminui para 6.
+
+Pontos selecionados como support vectors:
+```{r}
+support_vectors = x[modelo.linear$index,]
+support_vectors
+```
+
+Plot não muito bonito:
+```{r}
+plot(modelo.linear,dat)
+```
+
+Construção de uma grade para valores de X1 e X2 
+
+```{r}
+intervalo=apply(x,2,range)
+x1 = seq(from=intervalo[1,1],to=intervalo[2,1],length=75)
+x2 = seq(from=intervalo[1,2],to=intervalo[2,2],length=75)
+xgrid = expand.grid(X1=x1,X2=x2) # cria um espaço contínuo
+
+ygrid=predict(modelo.linear,xgrid)
+
+plot(xgrid,col=c('red','blue')[as.numeric(ygrid)],pch=20,cex=.2)
+
+# pontos originais
+points(x,col=y+3,pch=19)
+
+# suport vectors
+points(support_vectors,pch=5,cex=2)
+
+# Adicionado as margens (decision boundary):
+beta=drop( t(modelo.linear$coefs) %*% support_vectors )
+beta0=modelo.linear$rho
+abline(beta0/beta[2],-beta[1]/beta[2])
+
+# margem superior
+abline((beta0-1)/beta[2],-beta[1]/beta[2],lty=2)
+
+# margem inferior
+abline((beta0+1)/beta[2],-beta[1]/beta[2],lty=2)
+```
+
+## Cross Validation
+
+```{r}
+set.seed(1)
+cv_svm = tune(svm,y~.,data=dat,kernel="linear",scale=F,
+              ranges=list(cost=c(0.001,0.01,0.1,1,5,10,100)))
+summary(cv_svm)
+```
+O resultado no diz que o melhor modelo foi o de custo 100 (best performance: 0.1). Podemos acessá-lo com *best.model*:
+
+```{r}
+melhor_modelo = cv_svm$best.model
+summary(melhor_modelo)
+```
+
+# non-linear vector machine
+
+```{r}
+data = read.csv('data/svm_nonlinear.csv')
+data$y = as.factor(data$y)
+plot(data[,2:3],col=as.numeric(data$y))
+modelo_nao_linear=svm(y~.,data=data,kernel="radial",cost=5,scale=F)
+```
+
+Gráfico mais bonito:
+
+```{r}
+intervalo = apply(data[,2:3],2,range)
+x1 = seq(from=intervalo[1,1],to=intervalo[2,1],length=75)
+x2 = seq(from=intervalo[1,2],to=intervalo[2,2],length=75)
+xgrid = expand.grid(X1=x1,X2=x2) # cria um espaço contínuo
+ygrid=predict(modelo_nao_linear,xgrid)
+
+plot(xgrid,col=as.numeric(ygrid),pch=20,cex=.2)
+
+# pontos originais
+points(data[,2:3],col=as.numeric(data$y),pch=19)
+
+# support vectors - não sei se está correto
+# points(data[modelo_nao_linear$index,2:3],pch=5,cex=2)
+```
