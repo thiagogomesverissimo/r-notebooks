@@ -54,3 +54,19 @@ Método ELBOW para decidirmos em quantos grupo cortar:
 library(factoextra)
 fviz_nbclust(notas, FUN = hcut, method = "wss")
 ```
+
+Interpretação:
+
+Soma dos Quadrados: $\Sigma_i\Sigma_j(X_{ij}-\bar{X}_i)(X_{ij}-\bar{X}_i)$
+
+Fazemos a Soma dos Quadrados nos casos:
+
+- Soma dos Quadrados Totais (SST) (=SSR+SSB)
+- Soma dos Quadrados IntraGrupo (SSR)
+- Soma dos Quadrados interGrupo (SSB) - entre os grupos
+
+Queremos dimituir SSR.
+
+$R^2 = \frac{SSB}{SST}$
+
+- $R^2$ grande -> maior SSB e menor SSR
