@@ -1,0 +1,56 @@
+---
+title: "Cluster Hierárquico"
+output:
+  html_document:
+    df_print: paged
+---
+
+leitura dos dados:
+```{r}
+notas=read.csv('data/notas.csv')
+rownames(notas) = notas[,1]
+notas = notas[,-1]
+notas = notas[,2:3]  # só vou fazer com matemática e física
+```
+
+padronização e matriz de distâncias:
+```{r}
+notasz <- scale(notas)
+d = dist(notasz, method="euclidean")
+d
+```
+Métodos disponíveis:
+
+- vizinho mais próximo (single)
+- vizinho mais longe (complete)
+- media (average)
+- ward.D
+
+```{r}
+vizinho_proximo <- hclust(d, method = "single" )
+```
+
+Dendograma:
+```{r}
+plot(vizinho_proximo, cex = 0.6, hang = -1)
+```
+
+
+Cortanto em dois grupos:
+```{r}
+plot(vizinho_proximo, cex = 0.6, hang = -1)
+rect.hclust(vizinho_proximo, k = 2)
+```
+
+Etiquetando os alunos nos dois grupos:
+```{r}
+grupos = cutree(vizinho_proximo, k = 2)
+grupos
+```
+
+
+Método ELBOW para decidirmos em quantos grupo cortar:
+```{r}
+library(factoextra)
+fviz_nbclust(notas, FUN = hcut, method = "wss")
+```
