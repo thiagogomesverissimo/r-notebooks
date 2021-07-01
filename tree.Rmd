@@ -1,0 +1,40 @@
+---
+title: "tree"
+output: html_notebook
+---
+Dados usados: Carseats
+```{r}
+library(tree)
+library(ISLR)
+data("Carseats")
+```
+
+Criaremos uma coluna chamada *High* baseada na coluna Sales:
+
+```{r}
+Carseats$High = "No"
+Carseats[Carseats$Sales > 8,]$High = "Yes"
+
+Carseats$High = as.factor(Carseats$High)
+Carseats$High = relevel(Carseats$High, ref = "No")
+```
+
+Ajustando modelo com todas as colunas como explicativas exceto Sales (*.-Sales*):
+
+```{r}
+modelo = tree(formula = High ~ .-Sales, data=Carseats)
+```
+
+```{r}
+summary(modelo)
+```
+
+Número de folhas (terminal nodes) é 27. Taxa de erro do treinamento foi de 9%.
+Deviance foi 170.7 quanto menor melhor o ajuste nos dados de treinamento)
+O Residual mean deviance foi 45,75%.
+
+Gráficos:
+```{r}
+plot(modelo)
+text(modelo,pretty=0)
+```
