@@ -1,0 +1,62 @@
+---
+title: "SQT"
+output:
+  html_document:
+    df_print: paged
+---
+
+Suponha os dados:
+```{r}
+data = read.csv("data/grades_variance.csv")
+data
+```
+
+Separando os grupos:
+```{r}
+g1 = subset(data, data$group == 1)
+g2 = subset(data, data$group == 2)
+```
+
+Cada ponto menos a respectiva média, tudo ao quadrado:
+```{r}
+math_square = (data$math - mean(data$math))^2
+english_square = (data$english - mean(data$english))^2
+```
+
+SQT - Soma dos Quadrados Totais ou Variabilidade Total
+
+```{r}
+SQT = sum(math_square) +  sum(english_square)
+```
+
+SQR - Soma dos Quadrados Totais do grupo 1
+```{r}
+g1_math_square = (g1$math - mean(g1$math))^2
+g1_english_square = (g1$english - mean(g1$english))^2
+SQTg1 = sum(g1_math_square) +  sum(g1_english_square)
+```
+
+SQR - Soma dos Quadrados Totais do grupo 2
+```{r}
+g2_math_square = (g2$math - mean(g2$math))^2
+g2_english_square = (g2$english - mean(g2$english))^2
+SQTg2 = sum(g2_math_square) +  sum(g2_english_square)
+```
+
+Objetivo do cluster: Diminir a variabilidade dentro do grupo (SQTg1 e SQTg2) e aumentar a variabilidade entre os grupos (SQT_entre_grupos):
+
+SQT = SQTg1 + SQTg2 + SQT_entre_grupos 
+
+```{r}
+SQT_entre_grupos = SQT - SQTg1 - SQTg2
+SQT_entre_grupos
+```
+
+R_quadrado =  SQT_entre_grupos / SQT
+
+Assim, quanto maior for o R_quadrado, melhor foi o agrupamento.
+Podemos usar R_quadrado para avaliar a qualidade do agrupamento e critério de corte.
+Com a estratégia: fazer diversos agrupamentos e ver onde temos incrementos significativos no R_quadrado.
+
+
+
