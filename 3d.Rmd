@@ -1,0 +1,22 @@
+---
+  title: "3d"
+output: html_document
+---
+  
+Dados:
+```{r}
+data = read.csv("data/notas_PCA.csv")
+```
+
+Gráfico em 3D:
+```{r}
+library(rgl)
+library(car)
+scatter3d(notas_financas ~ notas_custos + notas_marketing, 
+          data = data, 
+          surface = FALSE, 
+          point.col = "dodgerblue4",
+          axis.col = rep(x = "black", 
+                         times = 3),
+          bg.col = "white")
+```

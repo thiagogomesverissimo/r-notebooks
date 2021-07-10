@@ -1,0 +1,92 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+Dados:
+```{r}
+data = read.csv("data/notas_PCA.csv")
+row.names(data) = data[,1]
+data = data[,-1]
+```
+
+
+construção da matriz de correlações (rho)
+```{r}
+rho <- cor(data)
+
+library(PerformanceAnalytics)
+chart.Correlation(data)
+```
+
+A estatística KMO:
+```{r}
+library(psych)
+KMO(r = rho)
+```
+
+Teste de esfericidade de Bartlett
+```{r}
+cortest.bartlett(R = rho)
+```
+6 graus de liberdade. 
+
+Dado o qui-quadrado 192.3685, podemos estimar o p-value:
+```{r}
+pchisq(q = 192.3685, df = 6, lower.tail = FALSE)
+```
+
+Hipótese Nula: matriz de correlação é igual a matriz identidade, ou seja, zero
+Hipótese alternativa: matriz de correlação não é igual a matriz identidade, ou seja, zero
+
+Autovalores (variâncias compartilhadas de todas as variáveis) da matriz de correlação rho:
+```{r}
+autovalores <- eigen(rho)$values
+```
+
+Explicação aproximada: Um auto valor de 2,5 significa que o fator correspondente carrega a variância de 2 variáveis e meia da base original. A soma dos autovalores corresponde a quantidade de variáveis.
+
+Calculando os autovalores a partir do polinomio característico:
+```{r}
+library(pracma)
+polinomio_caracteristico <- charpoly(rho)
+polinomio_caracteristico 
+```
+
+```{r}
+library(polynom)
+equacao = as.polynomial(rev(polinomio_caracteristico))
+print(equacao)
+solve(equacao)
+```
+
+variância compartilhada
+```{r}
+var_compartilhada <- (autovalores/sum(autovalores))
+var_compartilhada
+
+# Calculando a variância compartilhada cumulativa
+var_cumulativa <- cumsum(var_compartilhada)
+var_cumulativa
+```
+```{r}
+principais_componentes = 1:4
+report = data.frame(principais_componentes = paste0("PC", principais_componentes),
+           eigenvalue = autovalores,
+           var_compartilhada = var_compartilhada,
+           var_cumulativa = var_cumulativa)
+
+```
+
+```{r}
+library(dplyr) # para usaro operador: %>% 
+library(kableExtra)
+report %>% 
+  kable() %>%
+  kable_styling(bootstrap_options = "striped", 
+                full_width = T, 
+                font_size = 12)
+```
+
+
+
