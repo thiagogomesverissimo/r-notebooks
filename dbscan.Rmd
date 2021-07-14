@@ -1,0 +1,35 @@
+---
+title: "dbscan"
+output:
+  html_document:
+    df_print: paged
+---
+
+Método de  clusterização não paramétrico baseado  em  densidade
+
+leitura dos dados:
+```{r}
+notas=read.csv('data/notas.csv')
+rownames(notas) = notas[,1]
+notas = notas[,3:4]
+```
+
+Modelo:
+```{r}
+notas.normalized = scale(notas)
+library(dbscan)
+dbscan <- fpc::dbscan(notas.normalized, eps = 0.5, MinPts = 2)
+dbscan$cluster
+```
+
+Gráfico:
+```{r}
+notas$dbscan <- dbscan$cluster
+
+library(ggplot2)
+ggplot() +
+  geom_point(aes(x = notas$fis,
+                 y = notas$mat,
+                 color = as.factor(notas$dbscan)),
+             size = 3)
+```

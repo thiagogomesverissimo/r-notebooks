@@ -1,0 +1,46 @@
+---
+title: "kmeans"
+output:
+  html_document:
+    df_print: paged
+---
+  
+leitura dos dados:
+```{r}
+data = read.csv('data/MCDONALDS.csv',sep = ";", dec = ",")
+rownames(data) = data[,1]
+data =  data[,-1]
+```
+
+Padronização:
+```{r}
+data.normalized = scale(data)
+```
+
+modelos kmeans:
+```{r}
+data.kmeans = kmeans(data.normalized, centers = 2)
+```
+
+Visualizar os clusters:
+```{r}
+library(factoextra)
+fviz_cluster(data.kmeans,data=data.normalized)
+```
+
+Comparando dois e três grupos:
+
+```{r}
+data.kmeans.g2 = kmeans(data.normalized, centers = 2)
+data.kmeans.g3 = kmeans(data.normalized, centers = 3)
+
+library(ggplot2)
+g2 = fviz_cluster(data.kmeans.g2, geom = "point", data=data.normalized) + ggtitle("k = 2")
+g3 = fviz_cluster(data.kmeans.g3, geom = "point", data=data.normalized) + ggtitle("k = 3")
+
+library(gridExtra)
+grid.arrange(g2, g2, nrow = 2)
+```
+
+
+

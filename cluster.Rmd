@@ -13,7 +13,7 @@ notas = notas[,-1]
 notas = notas[,2:3]  # só vou fazer com matemática e física
 ```
 
-padronização e matriz de distâncias:
+Padronização e matriz de distâncias:
 ```{r}
 notasz <- scale(notas)
 d = dist(notasz, method="euclidean")
