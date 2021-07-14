@@ -54,9 +54,16 @@ SQT_entre_grupos
 
 R_quadrado =  SQT_entre_grupos / SQT
 
+
+```{r}
+R2 = SQT_entre_grupos / SQT
+R2
+```
+
 Assim, quanto maior for o R_quadrado, melhor foi o agrupamento.
 Podemos usar R_quadrado para avaliar a qualidade do agrupamento e critério de corte.
 Com a estratégia: fazer diversos agrupamentos e ver onde temos incrementos significativos no R_quadrado.
 
+Uma fórmula famosa, o ccc cubic clustering criterion, manipula o R_quadrado para identificarmos picos. 
 
 
