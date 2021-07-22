@@ -1,92 +1,277 @@
 ---
-title: "Untitled"
-output: html_document
+title: "PCA"
+output:
+  html_document: default
+  pdf_document: default
 ---
 
-Dados:
-```{r}
+PCA é um tipo de análise fatorial que usa as variâncias das variáveis originais..
+
+Observação: se usarmos os fatores da PCA como input na regressão linear perdemos o poder preditivo da regressão, ficando só com o diagnóstico do modelo.
+
+Dados do exemplo:
+```{r message=FALSE, warning=FALSE}
+library(textshape)
 data = read.csv("data/notas_PCA.csv")
-row.names(data) = data[,1]
-data = data[,-1]
+data = column_to_rownames(data,'estudante')
 ```
 
+Os $k$ fatores que encontraremos serão uma combinação linear entre nossas $k$ variáveis $x_i$ tomadas da forma:
 
-construção da matriz de correlações (rho)
-```{r}
+$F_1 = s_{11}x_{1i}+s_{21}x_{2i}+...+s_{k1}x_{ki}$
+$F_2 = s_{12}x_{1i}+s_{22}x_{2i}+...+s_{k2}x_{ki}$
+$...$
+$F_k = s_{ik}x_{1k}+s_{2k}x_{2i}+...+s_{kk}x_{ki}$
+
+Os coeficientes dessa combinação linear ($s_{ik}$) são chamados *scores fatoriais*.
+
+Construção da matriz de correlações (rho):
+
+```{r message=FALSE, warning=FALSE}
 rho <- cor(data)
-
 library(PerformanceAnalytics)
 chart.Correlation(data)
 ```
-
-A estatística KMO:
+teste de adequalibilidade com a estatística KMO:
 ```{r}
 library(psych)
 KMO(r = rho)
 ```
 
-Teste de esfericidade de Bartlett
+Teste de esfericidade de Bartlett no qual vamos testar se nosa matriz de correlação é estatisticamente igual a matriz de identidade, ou seja, que nossas correlações são zero:
+
 ```{r}
+library(psych)
 cortest.bartlett(R = rho)
 ```
-6 graus de liberdade. 
 
-Dado o qui-quadrado 192.3685, podemos estimar o p-value:
+Temos 6 graus de liberdade. Dado o qui-quadrado 192.3685, podemos estimar o p-value (ele é dado também acima):
+
 ```{r}
 pchisq(q = 192.3685, df = 6, lower.tail = FALSE)
 ```
 
-Hipótese Nula: matriz de correlação é igual a matriz identidade, ou seja, zero
-Hipótese alternativa: matriz de correlação não é igual a matriz identidade, ou seja, zero
+- Hipótese Nula: matriz de correlação é igual a matriz identidade, ou seja, zero
+- Hipótese alternativa: matriz de correlação não é igual a matriz identidade, ou seja, zero
 
-Autovalores (variâncias compartilhadas de todas as variáveis) da matriz de correlação rho:
+Autovalores (variâncias compartilhadas de todas as variáveis) da matriz de correlação rho (abaixo mostramos como ele é determinado):
 ```{r}
 autovalores <- eigen(rho)$values
+autovalores
 ```
 
-Explicação aproximada: Um auto valor de 2,5 significa que o fator correspondente carrega a variância de 2 variáveis e meia da base original. A soma dos autovalores corresponde a quantidade de variáveis.
-
-Calculando os autovalores a partir do polinomio característico:
+Cada autovalor tem um autovetor correspondente (coloquei o negativo, mas não achei pq foi necessário):
 ```{r}
+autovetores <- - eigen(rho)$vectors
+autovetores
+```
+
+Por exemplo, o autovalor:
+```{r}
+autovalores[1]
+```
+
+Tem o correspondente autovetor:
+
+```{r}
+autovetores[,1]
+```
+
+Perceba que o autovetor está padronizado:
+
+```{r}
+sum(autovetores[,1]^2)
+```
+
+Ilustração aproximada do significado de uma autovalor: Um auto valor de 2,5 significa que o fator correspondente carrega a variância compartilhada de 2 variáveis e meia da base original. A soma dos autovalores corresponde a quantidade de variáveis.
+
+Ilustração aproximada do significado de uma autovetor: projeções da variância capturada (serão usados para o cálculo dos scores fatoriais e cargas fatoriais)
+
+Dada a matriz de correlações de $\rho$, os autovalores ($\lambda$) são as raízes que resolvem a equação, sendo $I$ a matriz identidade:
+
+$det(\rho-\lambda I)=0$
+
+Equação da operação acima, chamada de polinômio característico:
+
+```{r message=FALSE, warning=FALSE}
 library(pracma)
-polinomio_caracteristico <- charpoly(rho)
-polinomio_caracteristico 
+coeficientes <- charpoly(rho)
+
+library(polynom)
+equacao = as.polynomial(rev(coeficientes))
+print(equacao)
 ```
 
-```{r}
-library(polynom)
-equacao = as.polynomial(rev(polinomio_caracteristico))
-print(equacao)
+Encontrando as raízes da equação (que são os autovalores):
+
+```{r message=FALSE, warning=FALSE}
 solve(equacao)
 ```
 
-variância compartilhada
+Chamamos de variância compartilhada a proporção do autovalor de cada fator:
 ```{r}
-var_compartilhada <- (autovalores/sum(autovalores))
-var_compartilhada
-
-# Calculando a variância compartilhada cumulativa
-var_cumulativa <- cumsum(var_compartilhada)
-var_cumulativa
+variancia_compartilhada <- (autovalores/sum(autovalores))
+variancia_compartilhada
 ```
+
+Variância compartilhada cumulativa:
+```{r}
+variancia_cumulativa <- cumsum(variancia_compartilhada)
+variancia_cumulativa
+```
+
+Organizando essas informações em um dataframe:
+
 ```{r}
 principais_componentes = 1:4
-report = data.frame(principais_componentes = paste0("PC", principais_componentes),
+report.pca = data.frame(
+           principais_componentes = paste0("PC", principais_componentes),
            eigenvalue = autovalores,
-           var_compartilhada = var_compartilhada,
-           var_cumulativa = var_cumulativa)
-
+           variancia_compartilhada = variancia_compartilhada,
+           variancia_cumulativa = variancia_cumulativa)
 ```
+
+
+Para cada autovalor encontrado substituímos na equação abaixo para encontrar o autovetor correspondente:
+
+$det(\rho-\lambda I)v=0$
+
+Nomeando colunas e linhas dos autovetores adequadamente:
+```{r}
+colnames(autovetores) = c('PC1','PC2','PC3','PC4')
+rownames(autovetores) = colnames(data)
+```
+
+Peso que cada variável tem em cada Fator:
 
 ```{r}
-library(dplyr) # para usaro operador: %>% 
-library(kableExtra)
-report %>% 
-  kable() %>%
-  kable_styling(bootstrap_options = "striped", 
-                full_width = T, 
-                font_size = 12)
+library(reshape2)
+data_melt=melt(autovetores)
+colnames(data_melt) = c('Variavel','Fator','value')
+
+library(tidyverse)
+ggplot(aes(x = Variavel, y = value, fill = Variavel),data=data_melt) +
+  geom_bar(stat = "identity") + 
+  facet_wrap(~Fator)
+    
+```
+
+Critério de kaiser ou critério da raiz latente: Adotar fatores com autovalor maior que 1. 
+
+Outro critério: no screePlot podemos parar no maior decréscismo de variância.
+
+Provando que os autovetores transpostos multiplicado pela matriz de correlação e multiplicado novamente pelos autovetores serão igual aos autovalores diagonalizados:
+$v'\rho=\lambda$
+
+```{r}
+# %*% is matrix multiplication
+provando=t(autovetores)%*%rho%*%autovetores
+round(provando,digits = 10)
+```
+
+Compara com os autovalores diagonalizados:
+```{r}
+diag(autovalores)
+```
+
+Para calcularmos os scores fatoriais dividimos o autovetor pela raiz quadrada do autovalor:
+
+```{r}
+scores_fatoriais = t(autovetores)/sqrt(autovalores)
+scores_fatoriais
+```
+
+Agora podemos voltar nas equações abaixo e vemos que o fator será a multiplicação dos scores fatorais pela nossa base original:
+
+$F_1 = s_{11}x_{1i}+s_{21}x_{2i}+...+s_{k1}x_{ki}$
+$F_2 = s_{12}x_{1i}+s_{22}x_{2i}+...+s_{k2}x_{ki}$
+$...$
+$F_k = s_{ik}x_{1k}+s_{2k}x_{2i}+...+s_{kk}x_{ki}$
+
+Padronizando os dados com z-score:
+```{r}
+data_std = scale(data)
+data_std = data.frame(data_std)
+```
+
+Finalmente os fatores para cada observação:
+```{r}
+scores_fatoriais = data.frame(scores_fatoriais)
+for(i in 1:nrow(scores_fatoriais)){
+  nova_coluna = paste0('PC',i)
+  data_std[[nova_coluna]] = scores_fatoriais[i,]$notas_financas*data_std$notas_financas +
+    scores_fatoriais[i,]$notas_custos*data_std$notas_custos +
+    scores_fatoriais[i,]$notas_marketing*data_std$notas_marketing +
+    scores_fatoriais[i,]$notas_atuarias*data_std$notas_atuarias 
+  }
+```
+
+Cargas Fatoriais (factor loadings) são as correlações de Pearson entre os fatores e as variáveis originais:
+
+```{r}
+correlacores_fatoriais = cor(data_std)
+cargas_fatoriais = correlacores_fatoriais[5:8,1:4]
+cargas_fatoriais
+```
+
+A soma dos quadrados das cargas fatoriais para cada fator nos da os autovalores:, por exemplo, para a primeira componente o auto valor é:
+
+```{r}
+sum(cargas_fatoriais[1,]^2)
+```
+
+Vamos supor que vamos cortar em 2 fatores:
+```{r}
+fatores_selecionados = t(cargas_fatoriais[1:2,])
+fatores_selecionados
+```
+
+Comunalidades (definida para cada variável) é a variância total compartilhada de cada uma das variáveis originais com todos os fatores, ou seja, o que é comum de cada variável nos fatores.
+Comunalidade zero indica que a variável não foi nada explicada pelos fatores extraídos e um que foi completamente explicada:
+
+```{r}
+Comunalidade = rowSums(fatores_selecionados[,1:2]^2)
+cbind(fatores_selecionados,Comunalidade)
 ```
 
 
+PCA usando prcomp:
 
+```{r}
+pca = prcomp(scale(data))
+summary(pca)
+```
+
+Autovalores:
+```{r}
+pca$sdev^2
+```
+
+Autovetores:
+```{r}
+pca$rotation
+```
+
+Com o screeplot podemos ver o decaimento da variância compartilhada:
+
+```{r message=FALSE, warning=FALSE}
+library(factoextra)
+fviz_eig(pca,addlabels=T)
+```
+
+Biplot:
+```{r message=FALSE, warning=FALSE}
+library(factoextra)
+fviz_mca_biplot(pca)
+```
+
+Cargas fatoriais (autovalor vezes autovetor):
+```{r}
+pca_cargas_fatoriais = pca$rotation %*% diag(pca$sdev)
+pca_cargas_fatoriais
+```
+
+Comunidalidade cortando em 2 fatores:
+```{r}
+rowSums(pca_cargas_fatoriais[,1:2]^2)
+```
