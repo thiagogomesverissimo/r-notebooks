@@ -19,12 +19,15 @@ tab = table(data$perfil,data$aplicacao)
 print(tab)
 ```
 
+
 Teste qui-quadradro: associação entre as variáveis se dão de forma aleatória?
 
-```{r message=FALSE, warning=FALSE}
+Hipotose nula: as variáveis qualitativas se associam de forma aleatória
+hipotese alternativa: as variáveis qualitativas Não se associam de forma aleatória
 
+```{r message=FALSE, warning=FALSE}
 teste_qui_quadrado <- chisq.test(tab)
-qui2
+teste_qui_quadrado
 ```
 
 Adicionado os totais das linahs e colunas:
@@ -48,23 +51,54 @@ colnames(tabela_freq_esperadas) = colnames(tab)
 rownames(tabela_freq_esperadas) = rownames(tab)
 tabela_freq_esperadas
 ```
-O teste qui-quadrado também nos da esse resultado:
+O teste qui-quadrado também nos fornece as frequencias esperadas:
 
 ```{r}
 teste_qui_quadrado$expected
 ```
 
-Matriz de resíduo (diferença do observado com o esperado, assim a soma dos resíduos sempre será zero):
+Matriz de resíduos (diferença do observado com o esperado, assim a soma dos resíduos sempre será zero):
 
 ```{r}
 residuos =  tab-tabela_freq_esperadas
 print(residuos)
 ```
 
-resíduos padrozinados ajustados
+Qui-quadradro será dado pela soma dos residuos ao quadrado divido pelos valores esperados:
+
+```{r}
+tabela_qui_quadrado = residuos^2 / tabela_freq_esperadas
+sum(tabela_qui_quadrado)
+```
+
+31.76416 está acima ou abaixo do valor crítico?
+graus de liberdade (df) da tabela de contigência = (linhas-1)*(colunas-1) = 4
+
+5% de significância (= 95% de confiânca):
+```{r}
+qchisq(p=0.05, df =4, lower.tail=F)
+```
+Como 31.76416 é maior que 9.487729 rejeitamos a hipótese nula e ficamos com a hipótese alternativa. Podemos fazer o contrário também, encontrar o p-value para 31.76416:
+
+```{r}
+pchisq(q=31.76416, df =4, lower.tail=F)
+```
+2.137599e-06 é bem menor que 0.05, assim rejeitamos a hipótese nula.
+
+resíduos padrozinados:
+```{r}
+residuos_padronizados = residuos/sqrt(tabela_freq_esperadas)
+residuos_padronizados
+```
+
+A função qui-quadrado também nos fornece os resíduos padronizados:
+```{r}
+teste_qui_quadrado$residuals
+```
+
+resíduos padrozinados ajustados:
+
 
 Mapa perceptual é uma espécia de plot da tabela de contigência
 
-```{r}
 
-```
