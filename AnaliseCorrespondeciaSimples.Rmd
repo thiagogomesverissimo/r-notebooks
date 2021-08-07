@@ -8,6 +8,8 @@ output:
 Análise de Correpondência é uma técnica não supervisionada que busca diagnosticar relação entre variáveis qualitativas, usando para tal tabelas de contigência com as frequencias das associações.
 Na simples temos apenas duas variáveis e chamamos de ANACOR.QUando há mais que 2 chamamos de análise de corrrespondencia multipla.
 
+Livro Clássico: Correspondence Analysis Handbook. Autor: Benzecri 
+
 Dados do exemplo:
 ```{R}
 data = read.csv("data/perfil_investidor.csv")
@@ -26,8 +28,6 @@ Teste qui-quadradro: associação entre as variáveis se dão de forma aleatóri
 
 Hipotose nula: as variáveis qualitativas se associam de forma aleatória
 hipotese alternativa: as variáveis qualitativas Não se associam de forma aleatória
-
-Problema do teste qui-quadrado: quanto maior amostra maior o teste qui-quadrado
 
 ```{r message=FALSE, warning=FALSE}
 teste_qui_quadrado <- chisq.test(tab)
@@ -102,7 +102,7 @@ A função qui-quadrado também nos fornece os resíduos padronizados:
 teste_qui_quadrado$residuals
 ```
 
-resíduos padrozinados ajustados:
+Resíduos padronizados ajustados:
 
 ```{r}
 residuos_padronizados_ajustados = data.frame(matrix(NA, nrow=3, ncol=3))
@@ -118,11 +118,132 @@ residuos_padronizados_ajustados
 
 ```
 
-O teste qui-quadrado também nos fornece os rediduos padronizados ajustados:
+O teste qui-quadrado também nos fornece os resíduos padronizados ajustados:
 
 ```{r}
 teste_qui_quadrado$stdres
 ```
+
+Benzecri encontrou que os resíduos padronizados ajustados em simulação com grande volume de dado regridem numa normal padrão.
+
+Usaremos os resíduos padronizados ajustado mairoes que 1,96 (indica associação intensa entre as duas variáveis) para montar o mapa perceptual.
+
+
+Viés do teste qui-quadrado: quanto maior amostra maior o teste qui-quadrado. A Inércia principal total tenta resolver isso dividindo o qui-quadrado pelo número de observações:
+
+```{r}
+inercia_principal_total = teste_qui_quadrado$statistic/nrow(data)
+inercia_principal_total
+```
+
+Agora vamos decompor a inércia principal total.
+Os autovalores, que mostram a quantidade de dimensões que vamos capturar, serão calculados a partir de uma matriz *W* que é dada por $W=A'A$. Sendo *A* dado por: .
+
+$A=D_l^2(P-lc')D_c^2$
+
+Essa matriz A irá capturar o valor da inertia principal total, isto é, 0.3176416 
+
+P é a matriz de frequências relativas:
+
+```{r}
+P = 1/nrow(data) * tab
+P
+```
+
+Profile  é uma medida de quanto cada categoria está puxando as demais.
+
+Column profiles (massas da linhas):
+
+```{r}
+column_profiles = data.frame(matrix(NA, nrow=3, ncol=3))
+for (row in 1:3){
+  for(col in 1:4){
+    column_profiles[row,col] =  tabela[row,col]/tabela[4,col]
+  }
+}
+colnames(column_profiles) = c(colnames(tab),'Dl')
+rownames(column_profiles) = rownames(tab)
+column_profiles
+```
+
+Row profiles (massas da colunas)
+
+```{r}
+row_profiles = data.frame(matrix(NA, nrow=3, ncol=3))
+for (row in 1:4){
+  for(col in 1:3){
+    row_profiles[row,col] =  tabela[row,col]/tabela[row,4]
+  }
+}
+colnames(row_profiles) = colnames(tab)
+rownames(row_profiles) = c(rownames(tab),'Dc')
+row_profiles
+```
+
+Matriz $D_l$ é a diagonalização dos colunm profiles:
+```{r}
+Dl = diag(column_profiles$Dl)
+Dl
+```
+
+Matriz $D_c$é a diagonalização dos row profiles:
+```{r}
+Dc = diag(row_profiles[4,])
+Dc
+```
+
+Matriz lc transposta
+```{r}
+dl_matrix = as.matrix(column_profiles$Dl)
+rownames(dl_matrix) = rownames(tab)
+lc = dl_matrix %*% as.matrix(row_profiles[4,])
+lc
+```
+
+Matriz A
+```{r}
+A = diag(diag(Dl) ^ (-1/2)) %*% (P - lc) %*% diag(diag(Dc) ^ (-1/2))
+A
+```
+
+Mas também poderíamos encontrar A assim (que é muito mais fácil):
+```{r}
+A = residuos_padronizados / sqrt(nrow(data))
+A
+```
+Matriz W:
+```{r}
+W <- t(A) %*% as.matrix(A)
+W
+```
+
+Extraindo os autovalores da matriz W:
+```{R}
+autovalores <- eigen(W)
+autovalores$values
+```
+
+A quantidade de autovalores que vamos extrair será o menor de linha-1 ou coluna-1. No nosso caso 2. perceba que o terceiro autovalor tende a zero (8.326673e-17). Somando os dois primeiro autovalores  2.332149e-01+8.442678e-02 = 0.3176417 chegamos no valor da inertia principal total, isto é, 0.3176416 
+
+A soma do autovalores nos da o valor da inércia principal total explicada.
+
+O primeiro auto valor explica 73,4% da inércia principal total:
+
+```{R}
+autovalores$values[1]/sum(autovalores$values)
+```
+
+Decomposição do valor singular da Matriz A:
+```{R}
+decomp <- svd(x = A,
+              nu = 2,
+              nv = 2)
+
+decomp
+```
+
+
+
 
 
 
