@@ -1,0 +1,171 @@
+---
+title: "Análise de Correspondências Simples - Anacor"
+output:
+  html_document:
+    df_print: paged
+---
+
+Inércia Principal total é dada por:
+
+$I_t = \frac{J-Q}{Q}$
+
+Sendo Q o número de varáveis e J o número de categorias. A dimensão será dada por J-Q;
+
+Dados do exemplo e iremos considerar: perfil, aplicação e estado cívil.
+```{R}
+data = read.csv("data/perfil_ACM.csv")
+```
+
+Teste qui-quadradro: associação entre as variáveis se dão de forma aleatória?
+
+Hipotose nula: as variáveis qualitativas se associam de forma aleatória
+hipotese alternativa: as variáveis qualitativas Não se associam de forma aleatória
+
+Teste qui-quadrado entre perfil e estado civil:
+```{r message=FALSE, warning=FALSE}
+chisq.test(table(data$perfil,data$estado_civil))
+```
+
+Teste qui-quadrado entre perfil e Aplicação:
+```{r message=FALSE, warning=FALSE}
+chisq.test(table(data$perfil,data$aplicacao))
+```
+
+Teste qui-quadrado entre Aplicação e estado cívil:
+```{r message=FALSE, warning=FALSE}
+chisq.test(table(data$estado_civil,data$aplicacao))
+```
+
+Criando a Matriz binária:
+
+```{r message=FALSE, warning=FALSE}
+library(cabootcrs)
+binaria = getindicator(Xinput = data[, 2:4])
+```
+
+Anacor:
+```{r message=FALSE, warning=FALSE}
+library(FactoMineR)
+CA(binaria)
+```
+matriz de burt é uma grande tabela que contém todas tabelas de contigências:
+```{r message=FALSE, warning=FALSE}
+library(cabootcrs)
+burt = t(binaria)%*%binaria
+
+# ou também podemos fazer:
+burt = getBurt(Xinput = data[, 2:4])
+```
+
+Se quisermos para perceputal de observações e categorias temos que usar a matriz binária e não a de burt. A de burt só trabalhamos com categoria e não com observação;
+
+modelo com ACM:
+```{r}
+library(FactoMineR)
+ACM <- MCA(data[, 2:4], method = "Indicador")
+```
+Coordenadas de cada categoria. 
+```{r}
+ACM$var$coord
+```
+
+inércias principais
+```{r}
+ACM$eig
+```
+
+Coordenadas de cada obeservação:
+
+```{r}
+coodernadas_observacoes = ACM$ind$coord
+```
+
+Inércia Principal total é dada por:
+
+$I_t = \frac{J-Q}{Q}$
+
+```{r}
+categorias <- apply(data[,2:4], 
+                    MARGIN =  2, 
+                    FUN = function(x) nlevels(as.factor(x)))
+inercia_principal_total <- (sum(categorias) - length(categorias)) / length(categorias)
+inercia_principal_total
+```
+
+Lebrando que a soma dos autovalores nos da Inércia Principal total :
+```{r}
+sum(ACM$eig[,1])
+```
+
+número de dimensões da ACM é dado por:
+
+```{r}
+dimensoes <- sum(categorias) - length(categorias)
+dimensoes
+```
+
+Preparando para plot do mapa perceptual:
+```{r}
+coordenadas <- data.frame(ACM$var$coord, Categoria = row.names(ACM$var$coord), Variavel = rep(names(categorias), categorias))
+```
+
+mapa perceptual:
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggrepel)
+
+ggplot(data = coordenadas,
+         aes(x = Dim.1, 
+             y = Dim.2, 
+             label = Categoria, 
+             color = Variavel, 
+             shape = Variavel)) +
+  geom_point() +
+  geom_label_repel() +
+  geom_vline(aes(xintercept = 0), linetype = "dashed", color = "grey") +
+  geom_hline(aes(yintercept = 0), linetype = "dashed", color = "grey") +
+  labs(x = paste("Dimensão 1:", paste0(round(ACM$eig[1,2], 2), "%")),
+       y = paste("Dimensão 2:", paste0(round(ACM$eig[2,2], 2), "%")))
+```
+
+Com duas dimensões capturam 36.14+26.16=62.30% da inércia total da nossa base de dados.
+
+Podemos extrair as observações que pode ser input para cluster:
+
+```{r message=FALSE, warning=FALSE}
+ACM_observacoes_df <- data.frame(ACM$ind$coord)
+```
+
+```{r message=FALSE, warning=FALSE}
+ggplot(data=ACM_observacoes_df,
+  aes(x = Dim.1, y = Dim.2, label = data$estudante)) +
+  geom_point(shape = 17, color = "#E76F5AFF", size = 2) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_text_repel(max.overlaps = 100, size = 3) +
+  geom_density2d(color = "gray80") +
+  geom_label_repel(data = ACM_mp, 
+                   aes(x = Dim.1, y = Dim.2, 
+                       label = rownames(ACM_mp), 
+                       fill = Variável), 
+                   color = "white") +
+  labs(x = paste("Dimensão 1:", paste0(round(ACM$eig[,2][1], digits = 2), "%")),
+       y = paste("Dimensão 2:", paste0(round(ACM$eig[,2][2], digits = 2), "%"))) +
+  scale_fill_viridis_d() +
+  theme(panel.background = element_rect("white"),
+        panel.border = element_rect("NA"),
+        panel.grid = element_line("gray95"),
+        legend.position = "none")
+```
+
+
+modelo com ACM usando matrix de Burt e não mais a binária:
+```{r}
+library(FactoMineR)
+ACM_burt <- MCA(data[, 2:4], method = "Burt")
+```
+
+As duas primeiras dimensões captura 79,9% da inércia:
+```{r}
+ACM_burt$eig
+```

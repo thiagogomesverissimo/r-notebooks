@@ -1,5 +1,5 @@
 ---
-title: "Análise de Correspondências Simples"
+title: "Análise de Correspondências Simples - Anacor"
 output:
   html_document:
     df_print: paged
@@ -332,4 +332,115 @@ ggplot(data = matrix_mapa_perceptual,
 
 ```
 
+## Correspondence Analysis (Anacor) usando o pacote FactoMineR
 
+Classificação das universidade com uma variável chamada CPC:
+```{r}
+cpc = read.csv("data/cpc.csv")
+```
+
+Modelo de análise de correspondência usando FactoMineR:
+```{r message=FALSE, warning=FALSE}
+library(FactoMineR)
+tab <- table(cpc$categoria,cpc$cpc)
+anacor <- CA(tab)
+```
+
+Coordenadas das categorias das universidades:
+
+```{r}
+anacor$row$coord
+```
+
+Coordenadas das notas CPC:
+```{r}
+anacor$col$coord
+```
+
+Juntando as coordenadas um um único dataframe:
+
+```{r}
+library(tibble)
+coordenadas_universidades = as.data.frame(anacor$row$coord)
+coordenadas_universidades['Variable'] = 'categoria'
+
+coordenadas_cpc = as.data.frame(anacor$col$coord)
+coordenadas_cpc['Variable'] = 'cpc'
+
+coordenadas = rbind(coordenadas_universidades,coordenadas_cpc)
+
+coordenadas = rownames_to_column(coordenadas)
+colnames(coordenadas) = c('Category','Dim1','Dim2','Dim3','Dim4','Variable')
+```
+
+Mapa perceptual usando ggplot:
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+
+ggplot(data = coordenadas, 
+       aes(x = Dim1, 
+           y = Dim2, 
+           label = Category, 
+           color = Variable,
+           shape = Variable)) +
+  geom_point(size = 3) +
+  geom_label_repel() +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  labs(x = paste("Dimension 1:", paste0(round(anacor$eig[1,2], digits = 2), "%")),
+       y = paste("Dimension 2:", paste0(round(anacor$eig[2,2], digits = 2), "%")))
+
+```
+Olhando o mapa perceptual em duas dimensões nos da a impressão que CPC3 está perto por exemplo de privadas sem fim lucrativo. Mas se olharmos o resíduos padronizados ajustados (que seria análogo a matrix de correlação), vemos que CPC3 e privadas sem fim lucrativo não se associam.
+
+Mapa de calor dos resíduos padronizados ajustados:
+```{r}
+teste_qui_quadrado <- chisq.test(tab)
+mapa_calor_res_pad_ajustados = rename(categoria = 1,cpc = 2,data.frame(teste_qui_quadrado$stdres))
+ggplot(data = mapa_calor_res_pad_ajustados, 
+       aes(x = fct_rev(categoria),
+           y = cpc, 
+           fill = Freq, 
+           label = round(Freq,3))) +
+  geom_tile() +
+  geom_text(size = 3) +
+  scale_fill_gradient2(low = "darkblue", 
+                     mid = "white", 
+                     high = "red",
+                     midpoint = 0)
+```
+Olhando o mapa perceptual em três dimensões percebemos que CPC2 não está perto de nenhuma categoria:
+
+```{r}
+library(plot3D)
+library(plotly)
+mapa_perceptual_3D <- plot_ly() 
+
+mapa_perceptual_3D <- add_trace(mapa_perceptual_3D, 
+                                x = anacor$row$coord[,1],
+                                y = anacor$row$coord[,2],
+                                z = anacor$row$coord[,3],
+                                mode = "text", 
+                                text = rownames(anacor$row$coord),
+                                textfont = list(color = "#440154FF"), 
+                                showlegend = FALSE) 
+
+mapa_perceptual_3D <- add_trace(mapa_perceptual_3D, 
+                                x = anacor$col$coord[,1],
+                                y = anacor$col$coord[,2],
+                                z = anacor$col$coord[,3],
+                                mode = "text", 
+                                text = rownames(anacor$col$coord),
+                                textfont = list(color = "#287C8EFF"), 
+                                showlegend = FALSE) 
+
+mapa_perceptual_3D <- layout(mapa_perceptual_3D, 
+                             scene = list(xaxis = list(title='Dim 1'),
+                                          yaxis = list(title='Dim 2'),
+                                          zaxis = list(title='Dim 3'),
+                                          aspectmode = "data"),
+                             margin = list(l = 0, r = 0, b = 0, t = 0))
+
+mapa_perceptual_3D
+```
