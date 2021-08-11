@@ -169,3 +169,65 @@ As duas primeiras dimensões captura 79,9% da inércia:
 ```{r}
 ACM_burt$eig
 ```
+
+## Combinando ACM, PCA e Cluster
+
+Bases de dados:
+```{r}
+notas = read.csv('data/notas_PCA.csv')
+perfil = read.csv("data/perfil_ACM.csv")
+data = left_join(notas,perfil,by='estudante')
+```
+
+Extraindo coordenadas com ACM:
+
+```{r}
+ACM = MCA(data[6:8],method="Indicator")
+data[,c('D1','D2','D3','D4','D5')] = data.frame(ACM$ind$coord)
+```
+Removendo as colunas categóricas:
+
+```{r}
+data = data[, -c(6:8)]
+data = column_to_rownames(data,"estudante")
+```
+
+PCA:
+```{r}
+data = scale(data)
+AFCP <- prcomp(data[,1:4])
+```
+
+Vamos considerar os fatores cujos eigenvalues se mostraram maiores do que 1:
+
+```{r}
+scores_fatoriais <- t(AFCP$rotation)/AFCP$sdev 
+
+score_D1 <- scores_fatoriais[1,]
+score_D2 <- scores_fatoriais[2,]
+
+F1 = t(apply(data[,1:4], 1, function(x) x * score_D1))
+F1 = data.frame(F1)
+F2 = t(apply(data[,1:4], 1, function(x) x * score_D2))
+F2 = data.frame(F2)
+
+F1$fator1 = rowSums(F1)
+F2$fator2 = rowSums(F2)
+
+data = data.frame(data)
+data[,c('F1','F2')] = cbind(F1$fator1,F2$fator2)
+```
+
+Eliminando as variáveis de notas:
+
+```{r}
+data = data[,-c(1:4)]
+```
+
+Cluster:
+
+```{r}
+library(factoextra)
+cluster <- kmeans(data, centers = 2)
+fviz_cluster(cluster, data = data)
+```
