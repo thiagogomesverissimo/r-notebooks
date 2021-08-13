@@ -1,0 +1,10 @@
+---
+title: "tmap"
+output: html_notebook
+---
+
+
+```{r}
+load("~/Downloads/PCA/Análise_FILES/")
+library(tmap)
+```

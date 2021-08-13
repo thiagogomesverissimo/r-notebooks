@@ -33,14 +33,14 @@ library(PerformanceAnalytics)
 chart.Correlation(data)
 ```
 teste de adequalibilidade com a estatística KMO:
-```{r}
+```{r warning=FALSE}
 library(psych)
 KMO(r = rho)
 ```
 
 Teste de esfericidade de Bartlett no qual vamos testar se nosa matriz de correlação é estatisticamente igual a matriz de identidade, ou seja, que nossas correlações são zero:
 
-```{r}
+```{r warning=FALSE}
 library(psych)
 cortest.bartlett(R = rho)
 ```
@@ -142,9 +142,9 @@ colnames(autovetores) = c('PC1','PC2','PC3','PC4')
 rownames(autovetores) = colnames(data)
 ```
 
-Peso que cada variável tem em cada Fator:
+Peso que cada variável tem em cada Fator, perceba que o fator 2 captura apenas a variável marketing:
 
-```{r}
+```{r warning=FALSE}
 library(reshape2)
 data_melt=melt(autovetores)
 colnames(data_melt) = c('Variavel','Fator','value')
@@ -235,7 +235,7 @@ cbind(fatores_selecionados,Comunalidade)
 ```
 
 
-PCA usando prcomp:
+# PCA usando a biblioteca prcomp
 
 ```{r}
 pca = prcomp(scale(data))
@@ -265,13 +265,84 @@ library(factoextra)
 fviz_mca_biplot(pca)
 ```
 
-Cargas fatoriais (autovalor vezes autovetor):
+Cargas fatoriais, autovalor vezes autovetor, também pode ser cálculada fazendo a correlação de Pearson entre as variáveis e os fatores:
 ```{r}
 pca_cargas_fatoriais = pca$rotation %*% diag(pca$sdev)
 pca_cargas_fatoriais
 ```
 
-Comunidalidade cortando em 2 fatores:
+Lembrando que a correlação entre os fatores é zero, dado que eles são construídos de forma ortogonal.
+
+Comunidalidade cortando em 2 fatores, isto é, a variância total compartilhada simultaneamente de cada variável com todos fatores considerados:
 ```{r}
 rowSums(pca_cargas_fatoriais[,1:2]^2)
 ```
+
+Se considerarmos os quatro fatores a comunidalidade será 1, isto é, os 4 fatores possuem toda variância:
+
+```{r}
+rowSums(pca_cargas_fatoriais[,1:4]^2)
+```
+
+Outra forma de encontrar os autovalores:
+```{r}
+colSums(pca_cargas_fatoriais^2)
+```
+
+
+Plot das cargas fatoriais:
+
+```{r}
+library(tidyverse)
+library(ggrepel)
+
+round(summary(pca)$importance[2,1] * 100,digits = 2)
+round(summary(pca)$importance[2,2] * 100,digits = 2)
+
+cargas_fatoriais = data.frame(pca_cargas_fatoriais)
+
+ggplot(data=cargas_fatoriais,
+  aes(x = X1, y = X2)) +
+  geom_point(color = "dodgerblue4") +
+  geom_hline(yintercept = 0, color = "darkgoldenrod3", linetype = "dashed") +
+  geom_vline(xintercept = 0, color = "darkgoldenrod3", linetype = "dashed") +
+  geom_text_repel(label = row.names(cargas_fatoriais)) +
+  labs(x = 'F1 (62,98%)',y = 'F2 (25,01%)')
+```
+Notas atuárias, finanças e custos se relacionam mais fortemente com F1 e F1 explica 62,98% do comportamento total dos dados.
+
+scores_fatoriais: 
+
+```{r}
+scores_fatoriais = t(pca$rotation)/pca$sdev
+scores_fatoriais
+```
+
+Multiplicação entre score fatorial e o valor observado padronizado:
+
+```{r}
+F1 <- t(apply(scale(data), 1, function(x) x * scores_fatoriais[1,]))
+F2 <- t(apply(scale(data), 1, function(x) x * scores_fatoriais[2,]))
+```
+
+Falta somar as multiplcações para obtermos os fatores:
+
+```{r}
+fator1 = data.frame(rowSums(F1))
+fator2 = data.frame(-rowSums(F2)) # está negativo para espelhar e fazer ranking
+```
+
+Variância compartilhada
+```{r}
+var_compartilhada <- (pca$sdev ^ 2/sum(pca$sdev ^ 2))
+var_compartilhada
+summary(pca)
+```
+
+Inventando um indicador, chamaremos de Ranking :
+ 
+```{r}
+ranking = fator1*var_compartilhada[1]+fator2*var_compartilhada[2]
+```
+
+Adelina, Renata e Cecília estão no topo.
