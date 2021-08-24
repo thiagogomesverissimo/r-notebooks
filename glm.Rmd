@@ -1,0 +1,265 @@
+---
+title: "glm"
+output: html_notebook
+---
+Francis Galton em meados de 1880 cria o termo Regressão, pois ele estudava relação de transmissão de caracteristicas entre gerações, como um descendente refredia em funcão dos seus genitores (de várias espécies).
+
+1896: Pearson criar a correlação de pearson. pearson escreve a biografia de Francis Galton.
+
+1906: William gosset criou a distribuição t-student (em homenagem aos seus estudantes) pois identificou que:
+- pode ter R2 alto com não significãncia estatistica dos parametros por causa da amostra pequena
+- pode ter R2 baico com alta significãncia estatistica dos parametros por causa da amostra grande
+
+História: o termo Generalized Linear Models surge pela primeira vez em 1972 num artigo de By J. A. NELDER and R. W. M. WEDDERBUR.
+
+ceteris paribus: termo em latim que é usado quando mantemos as demais variáveis 
+
+
+
+Não existe capacidade preditiva fora do intervalo dos dados usado para criar o modelo
+
+Transformação Box-Cox 
+
+```{r}
+data = read.csv('data/distancia.csv')
+```
+
+Condição 1: A somatória dos valores ajustados e observados deve ser zero.
+Problema: Existem infinitas retas que a somatória do ajustado com o observado resulta em zero.
+
+Condição 2: Qual reta, isto é, quais são os paremotros alfa e beta, que minimizam a diferença ao quadrado do valor ajustado e observado e ao mesmo tempo respeita a condição 1?
+
+```{r}
+f <- function(param, data) sum((param[1] + param[2]*data$x - data$y)^2)
+result <- optim(par = c(0, 1), f, data = data)
+
+alfa = result$par[1]
+print(alfa)
+
+beta = result$par[2]
+print(beta)
+```
+
+y_ajustados;
+```{r}
+data['y_ajustado'] = alfa + beta*data$x
+```
+
+coef de determinação ou coeficiente de ajuste
+R2 = indicado da nuvem de pontos para fins preditivos.  percentual de comportamento da variável dependente devido ao comportamento das preditoras, ou seja, o que não conseguimos capturar de variãncia é devido a omissão de variáveis que poderiam contribuir parao modelo
+
+```{r}
+soma_quadrados = sum( (data$y_ajustado - mean(data$y))^2 )
+soma_quadrados
+```
+
+```{r}
+soma_quadrados_residos = sum( (data$y - data$y_ajustado)^2 )
+soma_quadrados_residos
+```
+
+```{r}
+soma_quadrados_totais = soma_quadrados + soma_quadrados_residos
+soma_quadrados_totais
+```
+
+```{r}
+R2 = soma_quadrados/soma_quadrados_totais
+R2
+```
+
+Ou poderíamos encontrar o R2 elevando a correlação de pearson ao quadrado:
+
+```{r}
+R2 = cor(data$y,data$x)^2
+R2
+```
+
+R2 baixo causas: muita dispersão, outilers, ajuste linear quando os dados são não lineares
+
+usando lm:
+```{r}
+modelo = lm(formula = y ~ x, data=data)
+summary(modelo)
+```
+
+OLS = ordinary least square
+Visualisando resultado de forma melhor:
+```{r}
+library(jtools)
+summ(modelo,confint = T, digits = 4, ci.width = 0.95)
+```
+Ou:
+```{r message=FALSE, warning=FALSE}
+library(jtools)
+library(huxtable)
+export_summs(modelo,scale=F, digits = 4)
+```
+colocando no dataframe:
+
+```{r}
+data$yhat = modelo$fitted.values
+data$erro = modelo$residuals
+```
+
+Análise da Variância: ANOVA
+```{r}
+anova(modelo)
+```
+
+Graus de liberdade do modelo é o núemro de preditoras, ou seja, 1.
+Graus de liberdade dos resíduos, número de observações menos número de variáveis menos 1 (intercepto):
+
+```{r}
+df = nrow(data) - 1 - 1 # intercepto
+df
+```
+
+Cálculo de F:
+
+F_ij = Fisher com i (obesevações) e j (variáveis) graus de liberdade 
+SQM = Somatória dos quadrados do Modelo
+k = quandidade de parametros+1
+SQE = Somatória dos quadrados do erro (ou resíduos)
+n = número de observações:
+
+$F=\frac{\frac{SQM}{(k-1)}}{\frac{SQE}{(n-k)}}$
+
+```{r}
+F = (soma_quadrados/(1))/ (soma_quadrados_residos/(nrow(data)-2))
+F
+```
+
+Função densidade de probabilidade da distribuição de Fisher Snedecor para 10 grau de liberade do modelo e 40 graus de liberdade dos resíduos. 
+
+teste: 
+Hipótese Nula: A região da distribuição contém o zero - Não há modelo preditivo
+
+Hipótese Alternativa:  A região da distribuição não contém o zero (melhor dito: se cairmos nessa região significa que pelo menos um dos coeficientes betas da regrssão é estatisticamente diferente de zero a 95% de confiança)
+
+p-valeu: é a área abaixo da curva
+95% (nível de confianca) da área contém o zero e 5% (nível de significância) não contém o zero.
+
+```{r}
+f = rf(100000,df1=10,df2=40)
+hist(f,breaks = 100)
+```
+
+Função densidade de probabilidade da distribuição de Fisher Snedecor para nosso caso 1 grau de liberade do modelo e 8 graus de liberdade dos resíduos:
+
+```{r}
+f = rf(100000,df1=1,df2=8)
+hist(f,breaks = 100)
+```
+Qual o F crítico para nosso grau de liberadade?
+```{r}
+qf(0.05, df1=1, df2=8, lower.tail = FALSE)
+# ou
+qf(0.95, df1=1, df2=8, lower.tail = TRUE)
+```
+
+a área depois do nosso F caulculado, ou seja, p-value do nosso F calculado:
+```{r}
+pf(F, df1=1, df2=8, lower.tail = FALSE)
+1-pf(F, df1=1, df2=8, lower.tail = TRUE)
+```
+
+A distribuição de Fisher Snedecor é assimétria e tem cauda longa a direita.
+
+Mas por que usamos distribuição de Fisher Snedecor?
+Os valores reais menos previstos (capacidade preditiva do modelo) em comparação com erros seguem a distribuição de Fisher Snedecor. qualquer modelo que usa OLS  ordinary least square seguirá essa distribuição.
+
+Portanto, como p-value do F=0.000314 é menor que 0.05, há modelo estatisticamente significante a 95% de nível de confiança
+
+```{r}
+summary(modelo)
+```
+O Teste F avalia a significãncia conjunta dos parametros do modelo. Mas como avaliamos a significãncia conjunta dos parametros individualmente? Usando o teste t student. Usamos o teste t para cara parametro mais um teste t para o intercepto.
+
+```{r}
+t = rt(100000,df=8)
+hist(t,breaks = 100)
+```
+
+H0: O parâmetro não é estatisticamente significante
+H1: O parâmetro é estatisticamente significante
+
+Residual Standard Error:
+```{r}
+sqrt(soma_quadrados_residos/8)
+```
+
+Estatística t é o valor do coeficiente divido pelo erro padrão:
+```{r}
+erro_padrao = sqrt(diag(vcov(modelo)))
+estatistica_t = modelo$coefficients[2]/erro_padrao[2]
+estatistica_t
+```
+
+p-value da estatística t, lembrando que a distribuição t student é simétrica, temos que considerar as duas caudas, ou seja, multiplicar por dois:
+```{r}
+2*pt(estatistica_t,df=8,lower.tail = FALSE)
+```
+Assim, a variável preditora distância é estasticamente significante para explicar o  tempo, pois 0.0003144488 é menor que 0.05.
+
+Já o p-value t student do intercepto é 0.230788 e maior que 0.05, neste caso, porque o intervalo de confiaça do intercepto inclue o zero, assim não podemos dizer que ele é estatisticamente diferente de zero:
+
+```{R}
+confint(modelo,level = 0.95)
+```
+
+Atenção: não devemos excluir o intercepto do modelo pois geraríamos um viés, obrigando o modelo ppassar pela origen.
+
+Aumentando o intervalo de confiançã podemo comprometer a significância estatística do parametro.
+
+Para x=25 o y previsto é de 41.3
+```{R}
+predict(object=modelo,data.frame(x=25))
+```
+
+Intervalo de confiança:
+
+```{R}
+predict(object=modelo,data.frame(x=25),interval = "confidence",level=0.95)
+```
+
+Interpretação: Em 25 km percorrido em média o tempo gasto será 41,3 mas á 95% de confiança esse tempo estará entre 34,8 e 47,89. Esse intervalo de confiança tende a ser menor conforme aumenta o R quadrado.
+
+Com step-wise consegimos remover os betas que não são estatisticamente significantes, mas nunca removeremos o intecepto do modelo, pois quando ele não é estatisticamente signicante apenas significa que nossa amostra é pequena.
+
+## Regressão Múltipla
+
+Transparência internacional de corrupção:
+
+cpi: percepção da população no controle da corrupção
+idade: idade média dos bilionários
+horas: quantidade de horas semanais médias trabalhadas (geral da população)
+
+```{R}
+paises = read.csv('data/paises.csv')
+```
+
+intensidade das Correlações:
+```{R message=FALSE, warning=FALSE}
+library(see)
+library(ggraph)
+library(correlation)
+plot(correlation(paises,method="pearson"))
+```
+
+cpi será a variável resposta.
+
+```{R}
+modelo = lm(formula = cpi ~ idade + horas, data = paises )
+summary(modelo)
+```
+
+32,39% da avaliação da CPi é devido a idade e hora e 67,61 é devido a outras variáveis que desconhecemos.
+
+Como vimos pelo p-value dos betas (idade e horas) os intervalos de confiança a 95% não incluem zero:
+```{r message=FALSE, warning=FALSE}
+library(jtools)
+library(huxtable)
+summ(modelo, confint = TRUE, ci.width = 0.95)
+```
+

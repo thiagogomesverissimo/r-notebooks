@@ -2,9 +2,11 @@
 title: "tmap"
 output: html_notebook
 ---
+Dependências do sistema operacional:
 
+sudo apt install libudunits2-dev libgdal-dev libgeos-dev libproj-dev libfontconfig1-dev
 
-```{r}
-load("~/Downloads/PCA/Análise_FILES/")
+```{r warning=FALSE}
+#load("~/Downloads/PCA/Análise_FILES/")
 library(tmap)
 ```
