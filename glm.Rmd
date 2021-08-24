@@ -263,3 +263,16 @@ library(huxtable)
 summ(modelo, confint = TRUE, ci.width = 0.95)
 ```
 
+
+```{R}
+corrupcao = read.csv('data/corrupcao.csv')
+```
+
+```{R}
+table(corrupcao$regiao)
+```
+
+
+```{R}
+aggregate(corrupcao$cpi ~ corrupcao$regiao, FUN=mean)
+```
