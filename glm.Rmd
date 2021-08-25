@@ -263,16 +263,51 @@ library(huxtable)
 summ(modelo, confint = TRUE, ci.width = 0.95)
 ```
 
+Cpi em função da região, ou seja, a variável preditora é qualitativa:
 
 ```{R}
 corrupcao = read.csv('data/corrupcao.csv')
 ```
 
+Transformando região em categórica:
+```{R}
+corrupcao$regiao = as.factor(corrupcao$regiao)
+levels(corrupcao$regiao)
+```
+
+Tabela de frequência:
 ```{R}
 table(corrupcao$regiao)
 ```
 
+Média da variável cpi em função da região:
 
 ```{R}
 aggregate(corrupcao$cpi ~ corrupcao$regiao, FUN=mean)
+```
+
+Máximo da variável cpi em função da região:
+
+```{R}
+aggregate(corrupcao$cpi ~ corrupcao$regiao, FUN=max)
+```
+
+Procedimento dummy: 
+
+- categoria de referência: deixamos como zero, que significa ausência do atributo
+- categoria de alternativa: valor 1 e um significa presença do atributo.
+
+Então o "alfa" representara o comportamento de y em relação a categoria de referência. E o beta representa o comportamento de y quando se muda a variável de referência em relação a alternativa.
+
+Para n categoria teremos n-1 variáveis dummies
+
+```{R}
+dummy
+```
+
+Modelo:
+
+```{R}
+modelo = lm(formula = cpi ~ regiao, data = corrupcao )
+summary(modelo)
 ```
