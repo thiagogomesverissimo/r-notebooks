@@ -46,7 +46,10 @@ data['y_ajustado'] = alfa + beta*data$x
 ```
 
 coef de determinação ou coeficiente de ajuste
-R2 = indicado da nuvem de pontos para fins preditivos.  percentual de comportamento da variável dependente devido ao comportamento das preditoras, ou seja, o que não conseguimos capturar de variãncia é devido a omissão de variáveis que poderiam contribuir parao modelo
+R2 = indicado da nuvem de pontos para fins preditivos. 
+percentual de variância da variável Y que é capturado pelo comportamento de variação das variáveis preditoras.
+
+percentual de comportamento da variável dependente devido ao comportamento das preditoras, ou seja, o que não conseguimos capturar de variãncia é devido a omissão de variáveis que poderiam contribuir parao modelo
 
 ```{r}
 soma_quadrados = sum( (data$y_ajustado - mean(data$y))^2 )
@@ -210,7 +213,7 @@ confint(modelo,level = 0.95)
 
 Atenção: não devemos excluir o intercepto do modelo pois geraríamos um viés, obrigando o modelo ppassar pela origen.
 
-Aumentando o intervalo de confiançã podemo comprometer a significância estatística do parametro.
+Aumentando o intervalo de confiança podemo comprometer a significância estatística do parametro.
 
 Para x=25 o y previsto é de 41.3
 ```{R}
@@ -299,15 +302,38 @@ Procedimento dummy:
 
 Então o "alfa" representara o comportamento de y em relação a categoria de referência. E o beta representa o comportamento de y quando se muda a variável de referência em relação a alternativa.
 
-Para n categoria teremos n-1 variáveis dummies
+Para n categoria teremos n-1 variáveis dummies. 
+"dummizando" a variável região a opção remove_most_frequent_dummy deixa a Europa como categoria de referência:
 
 ```{R}
-dummy
+library(fastDummies)
+corrupcao_dummies = dummy_cols(corrupcao, select_columns = c("regiao"), remove_most_frequent_dummy = TRUE)
+corrupcao_dummies
 ```
+Modelo usando dataframe das dummies mas removendo colunas pais e regiao :
 
-Modelo:
+```{R}
+modelo = lm(formula = cpi ~ . -pais -regiao, data = corrupcao_dummies )
+summary(modelo)
+```
+Como Europa é a referência o interpecepto é a média da europa: 6.258333 
+
+Os demais interceptos são todos com relação a Europa:
+
+```{R}
+medias = aggregate(corrupcao$cpi ~ corrupcao$regiao, FUN=mean)
+medias$`corrupcao$cpi` - 6.258333
+```
 
 ```{R}
 modelo = lm(formula = cpi ~ regiao, data = corrupcao )
 summary(modelo)
 ```
+
+
+
+Os testes t e F são utilizados para se avaliar a adequação de um modelo regressivo.
+O incremento amostral favorece a significância estatística do parâmetro correspondente ao intercepto.
+o teste F Avalia a significância estatística conjunta dos parâmetros.
+
+Muitas são as classes de estimações que se inserem nos modelos GLM, tais como os modelos de regressão simples e múltipla, os modelos logísticos binários e multinomiais e os modelos para dados de contagem.
