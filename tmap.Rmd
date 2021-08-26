@@ -1,6 +1,8 @@
 ---
 title: "tmap"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 Dependências do sistema operacional para a biblioteca tmap:
 
