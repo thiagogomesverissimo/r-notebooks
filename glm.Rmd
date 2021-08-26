@@ -323,9 +323,12 @@ Os demais interceptos são todos com relação a Europa:
 ```{R}
 medias = aggregate(corrupcao$cpi ~ corrupcao$regiao, FUN=mean)
 medias$`corrupcao$cpi` - 6.258333
-```
+```p
+
+Criando o mesmo modelo, mas usando o dummy implicito do lm com re-level escolhido para europa:
 
 ```{R}
+corrupcao$regiao = relevel(corrupcao$regiao, ref = "Europa")
 modelo = lm(formula = cpi ~ regiao, data = corrupcao )
 summary(modelo)
 ```

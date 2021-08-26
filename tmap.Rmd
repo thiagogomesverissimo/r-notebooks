@@ -2,11 +2,197 @@
 title: "tmap"
 output: html_notebook
 ---
-Dependências do sistema operacional:
+Dependências do sistema operacional para a biblioteca tmap:
 
 sudo apt install libudunits2-dev libgdal-dev libgeos-dev libproj-dev libfontconfig1-dev
 
+base de dados que criaremos um ranking com análise fatorial:
 ```{r warning=FALSE}
-#load("~/Downloads/PCA/Análise_FILES/")
-library(tmap)
+library(textshape)
+data_original = read.csv("data/atlas.csv")
+data_original = column_to_rownames(data_original,'distritos')
+data = data_original[,-1]
 ```
+
+Correlações das colunas numéricas:
+```{r message=FALSE, warning=FALSE}
+library(PerformanceAnalytics)
+chart.Correlation(data)
+```
+Teste de esfericidade de bartlet
+```{r message=FALSE, warning=FALSE}
+library(psych)
+rho = cor(data)
+cortest.bartlett(R = rho)
+```
+Como p-value é 8.646135e-141 dizemos que na significância de 5% (ou nível confiança de 95%) ficamos com a hipótese alternativa de que essa matriz de correlação é estatisticamente diferente da matriz de identidade (zerada)
+
+Normanlizando base de dados:
+```{r message=FALSE, warning=FALSE}
+data_std = data.frame(scale(data))
+```
+
+Modelo:
+```{r message=FALSE, warning=FALSE}
+modelo = prcomp(data_std)
+summary(modelo)
+```
+
+Autovalores:
+```{r}
+modelo$sdev^2
+```
+O primeiro fator captura variância de quase 5 variáves.
+
+Autovetores:
+```{r message=FALSE, warning=FALSE}
+autovetores = modelo$rotation
+```
+
+Autovetor, ou seja, o peso da cada variável em cada fator:
+```{r message=FALSE, warning=FALSE}
+library(reshape2)
+data_melt=melt(autovetores)
+colnames(data_melt) = c('Variavel','Fator','value')
+
+library(tidyverse)
+ggplot(aes(x = Variavel, y = value, fill = Variavel),data=data_melt) +
+  geom_bar(stat = "identity") + 
+  facet_wrap(~Fator) +
+  theme(axis.text.x = element_text(angle = 90))
+```
+Com o screeplot podemos ver o decaimento da variância compartilhada:
+
+```{r message=FALSE, warning=FALSE}
+library(factoextra)
+fviz_eig(modelo,addlabels=T)
+```
+cargas fatorais (correlação entre os fatores estabelecidos e as variáveis originais):
+
+```{r message=FALSE, warning=FALSE}
+cargas_fatoriais = modelo$rotation %*% diag(modelo$sdev)
+cargas_fatoriais
+```
+Mantendo somente os dois primeiros fatores:
+```{r message=FALSE, warning=FALSE}
+cargas_fatoriais = cargas_fatoriais[,1:2]
+cargas_fatoriais
+```
+
+Comunalidade, variâncias totais compartilhadas em cada um dos fatores considerados:
+```{r message=FALSE, warning=FALSE}
+comunalidade = rowSums(cargas_fatoriais^2)
+comunalidade
+```
+Capturamos 82,86% da variância de renda e apenas 40,5% de favel, considerando apenas dois fatores.
+
+é importante mostrar as cargas_fatoriais junto com a comunalidade: 
+```{r message=FALSE, warning=FALSE}
+cbind(cargas_fatoriais,comunalidade)
+```
+
+Gráfico das cargas fatoriais:
+
+```{r message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(ggrepel)
+
+round(summary(modelo)$importance[2,1] * 100,digits = 2)
+round(summary(modelo)$importance[2,2] * 100,digits = 2)
+cargas_fatoriais = data.frame(cargas_fatoriais)
+
+ggplot(data=cargas_fatoriais,
+  aes(x = X1, y = X2)) +
+  geom_point(color = "dodgerblue4") +
+  geom_hline(yintercept = 0, color = "darkgoldenrod3", linetype = "dashed") +
+  geom_vline(xintercept = 0, color = "darkgoldenrod3", linetype = "dashed") +
+  geom_text_repel(label = row.names(cargas_fatoriais)) +
+  labs(x = 'F1 (62,98%)',y = 'F2 (25,01%)')
+```
+densipop se relaciona mais com F2 e as demais se relacionam todas com F1.
+
+scores_fatoriais: 
+
+```{r}
+scores_fatoriais = t(modelo$rotation)/modelo$sdev
+scores_fatoriais = t(scores_fatoriais)
+scores_fatoriais
+```
+
+mantendo 2 scores fatoriais: 
+
+```{r}
+scores_fatoriais = scores_fatoriais[,1:2]
+scores_fatoriais
+```
+
+Para criação do indicador manteremos apenas o primeiro fator.
+
+Multiplicação entre primeiro score fatorial e o valores observado padronizado:
+```{r message=FALSE, warning=FALSE}
+multiplicacoes_F1 <- t(apply(data_std, 1, function(x) x * scores_fatoriais[,1]))
+F1 = data.frame(-rowSums(multiplicacoes_F1)) # deixamos negativo para o ranking ficar "bunitinho" - quanto maior, signica melhor, e não o contrario
+```
+
+Colocando fator 1 no dataframe original:
+```{r message=FALSE, warning=FALSE}
+data_original["fator1"] <- F1
+```
+
+Criando uma coluna pontuação do ranking pela soma ponderada dos fatores por sua variância compartilhada, ou seja, vamos considerar 55,06% que é o que esse valor explica:
+
+```{r message=FALSE, warning=FALSE}
+var_compartilhada <- (modelo$sdev ^ 2/sum(modelo$sdev ^ 2))
+data_original$pontuacao = data_original$fator1 * var_compartilhada[1] # 55,06%
+```
+
+Abrindo o shapefile da cidade de são Paulo:
+
+```{r message=FALSE, warning=FALSE}
+library(maptools)
+sao_paulo = readShapeSpatial("data/shapefile_saopaulo/sao_paulo")
+```
+
+Salvando shapefile se necessário:
+
+```{r message=FALSE, warning=FALSE}
+library(maptools)
+writeSpatialShape(sao_paulo, "data/shapefile_saopaulo/sao_paulo")
+```
+
+Plotando mapa:
+```{r message=FALSE, warning=FALSE}
+library(tmap)
+tm_shape(sao_paulo) + tm_borders()
+```
+
+Colocando dataframe com Fator1 no mapa:
+
+```{r message=FALSE, warning=FALSE}
+sao_paulo@data$COD_DIST = as.numeric(sao_paulo@data$COD_DIST)
+data_original$distritos = rownames(data_original)
+
+distritos_dados <- merge(sao_paulo,
+                         data_original,
+                         by.x = "COD_DIST",
+                         by.y = "cod_ibge")
+
+```
+
+Vendo o mapa:
+
+```{r message=FALSE, warning=FALSE}
+#tmap_mode("plot")
+tmap_mode("view")
+
+tm_shape(distritos_dados) +
+  tm_fill("pontuacao", midpoint = 0, palette = "RdBu", 
+          style = "quantile", n = 10, legend.show = T) +
+  tm_borders(alpha = 0.8) +
+  tm_text("distritos") 
+
+```
+
+
+

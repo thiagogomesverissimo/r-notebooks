@@ -38,7 +38,7 @@ library(psych)
 KMO(r = rho)
 ```
 
-Teste de esfericidade de Bartlett no qual vamos testar se nosa matriz de correlação é estatisticamente igual a matriz de identidade, ou seja, que nossas correlações são zero:
+Teste de esfericidade de Bartlett no qual vamos testar se nossa matriz de correlação é estatisticamente igual a matriz de identidade, ou seja, que nossas correlações são zero:
 
 ```{r warning=FALSE}
 library(psych)
