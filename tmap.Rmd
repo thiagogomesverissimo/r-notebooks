@@ -3,6 +3,7 @@ title: "tmap"
 output:
   html_document:
     df_print: paged
+  pdf_document: default
 ---
 Dependências do sistema operacional para a biblioteca tmap:
 
@@ -185,8 +186,8 @@ distritos_dados <- merge(sao_paulo,
 Vendo o mapa:
 
 ```{r message=FALSE, warning=FALSE}
-#tmap_mode("plot")
-tmap_mode("view")
+tmap_mode("plot")
+#tmap_mode("view")
 
 tm_shape(distritos_dados) +
   tm_fill("pontuacao", midpoint = 0, palette = "RdBu", 
