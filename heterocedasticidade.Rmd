@@ -1,0 +1,87 @@
+---
+title: "heterocedasticidade"
+output: html_notebook
+---
+
+heterocedasticidade é a consequência da existência de correlação significante entre os termos de erro e uma ou mais variáveis preditoras. 
+
+Pode ser reduzido por meio da inclusão de variáveis preditoras de Y cujos parâmetros b se mostrarem estatisticamente significantes após o procedimento Stepwise. Termos de erro serão heterocedásticos quando estiverem fazendo as vezes de variáveis preditoras significantes que foram omitidas no modelo final estimado.
+
+y=saeb e x=rendimento
+```{r}
+data = read.csv("data/saeb.csv")
+```
+
+Estados:
+```{r}
+table(data$uf)
+```
+
+```{r}
+plot(data$rendimento, data$saeb, pch = 20, cex = 0.4)
+```
+os termos de erro não deveria ter relação com a x, mas no gráfico, com esse formato de cone, vemos que o erros aumentam conforme x aumenta. Isso signica que nos termos de erros está incluído alguma variável preditora omitida que desconhecemos.
+
+heterocedasticidade (omissão de váriavel preditora importante): variância não constante
+heterocedasticidade: correlação entre variáveis x e termos de erros
+
+```{r}
+modelo = lm(formula = saeb ~ rendimento,data=data)
+summary(modelo)
+```
+Teste de Breusch-Pagan para disgnóstico de heterocedasticidade (criado em 1980):
+
+```{r message=FALSE, warning=FALSE}
+data$y_ajustado = predict(object = modelo,newdata = data)
+data$residuos = data$saeb - data$y_ajustado
+data$up = ((data$residuos)^2)/((sum(data$residuos^2,na.rm=TRUE)) / length(modelo$residuals))
+
+modelo_auxiliar = lm(formula = up ~ y_ajustado,data = data)
+anova(modelo_auxiliar)
+pchisq(33.441401/2,df=1,lower.tail = F)
+```
+
+Poderíamos obeter 4.330589e-05 usando a biblioteca olsrr:
+```{r message=FALSE, warning=FALSE}
+library(olsrr)
+ols_test_breusch_pagan(modelo)
+```
+
+H0 = ausência de heterocedasticidade
+H1 = há heterocedasticidade, ou seja, existe correlação entre os resíduos e as variáveis explicativas o que indica omissão de variável explicativa relevante
+
+Neste caso p-value 4.330589e-05, rejeitamos H0 e aceitamos H1, e há heterocedasticidade
+
+Vamos incluir as unidades da federação:
+```{r}
+library(fastDummies)
+data = read.csv("data/saeb.csv")
+dummies = dummy_cols(data, select_columns = c("uf"), remove_most_frequent_dummy = TRUE)
+# remove_most_frequent_dummy removerá são paulo
+```
+
+Modelo com dummies:
+```{R}
+modelo_dummies = lm(formula = saeb ~ . -uf -municipio -codigo -escola -rede,data=dummies)
+summary(modelo_dummies)
+```
+
+Agora não podemos rejeitar H0 0.2996785 e há ausência de heterocedasticidade
+```{r message=FALSE, warning=FALSE}
+library(olsrr)
+ols_test_breusch_pagan(modelo_dummies)
+```
+
+Se mudarmos a variável de referência da dummy, não mudamos o resultado do teste breusch pagan. 
+
+Agora com a inclusão dos estados diminimos o efeito cone no gráfico:
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+ggplot(data, 
+  aes(x = rendimento, y = saeb, color = uf, shape = uf)) +
+  geom_point(size = 1) +
+  geom_smooth(method = "lm", se = F) +
+  xlab("rendimento") +
+  ylab("saeb")
+```

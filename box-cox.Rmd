@@ -1,0 +1,280 @@
+---
+title: "box-cox"
+output: html_notebook
+---
+
+Ajuste não linear com transformação box-cox:
+
+```{r}
+data = read.csv("data/bebes.csv")
+summary(data)
+```
+
+A variável y será o comprimento do bebê e a idade (semanas) será preditiva.
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+ggplot(data=data)+
+  geom_point(aes(x=idade,y=comprimento))
+```
+
+Ajuste linear e ajuste não linear:
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+ggplot(data=data)+
+  geom_point(aes(x=idade,y=comprimento)) +
+  geom_smooth(aes(x=idade,y=comprimento),se=F,method="lm",color="red") +
+  geom_smooth(aes(x=idade,y=comprimento),se=F)
+```
+Aderência dos termos de erros à normalidade
+
+1 - rodar o modelo propondo uma forma funcional linear
+2 - Vamos avaliar os termos dos erros gerados a posteriori
+3 - teste de normamilidade nos erros
+  Se os erros tiverem uma distrubuição normal, o modelo linear proposto está adequado
+  Senão, vamos propor um ajuste do modelo para que os erros a posteriori tenham ou tendam a uma distrubuição normal
+
+Modelo linear:
+```{r message=FALSE, warning=FALSE}
+modelo_linear = lm(formula = comprimento ~ idade, data=data)
+summary(modelo_linear)
+```
+Checklist:
+- R2 nos diz que 90,27% do crescimento é explicado pela idade
+- o p-value do teste F passa
+- o p-value do teste t para idade passa
+- Falta fazer o teste de normalidade dos termos de erros ou resíduos para verificar se há aderência dos termos de erros à normalidade
+
+R2 ajustado é usado para comparar R2 entre modelos rodados com tamanho (linhas e colunas) diferentes, pois desconta o efeito do R2 aumentar com a quantidade de observações e desconta o efeito do R2 aumentar com a quantidade de variáveis explicativas:
+
+$R^2_{ajustado} = 1 - \frac{n-1}{n-k}(1-R^2)$
+
+n = número de linhas
+k = 2 (intercepto + idade)
+R2 = 0.9027
+```{r message=FALSE, warning=FALSE}
+R2_ajustado = 1 - ( (nrow(data)-1)/(nrow(data)-2) )*(1-0.9027)
+R2_ajustado
+```
+Só usar R2 ajustado quando formos compararmos modelos.
+
+Verificando aderência a normalidade com o teste shapiro:
+
+```{r message=FALSE, warning=FALSE}
+shapiro.test(modelo_linear$residuals)
+```
+Mas shapiro deve ser usado com n < 30
+
+No nosso caso n>30 então vamos usar shapiro-francia
+```{r message=FALSE, warning=FALSE}
+library(nortest)
+sf.test(modelo_linear$residuals)
+```
+
+Juntando os resíduos com os dados:
+
+```{r message=FALSE, warning=FALSE}
+matriz_residuos = data
+matriz_residuos['residuos'] = modelo_linear$residuals
+```
+
+Histograma dos resíduos e curca teórica:
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+ggplot(data=matriz_residuos) +
+  geom_histogram(aes(y= ..density..,x=residuos)) +
+  stat_function(fun = dnorm, 
+                args = list(mean = mean(modelo_linear$residuals),
+                            sd = sd(modelo_linear$residuals)),
+                aes(color = "Curva Normal Teórica"),
+                size = 2)
+```
+Estamos comparando nesse gráfico o histograma dos resíduos e a distribuição normal teórica.
+Para que haja aderência a normalidade a diferença entre a curva teórica e as barras do histograma deve ser pequena, tendendo a zero. Mas como avaliar se essa diferença é estatisticamente igual a zero? 
+Vamos usar o teste t:
+
+H0 = A diferença no histograma dos resíduos com a distribuição normal teórica é igual zero
+H1 = A diferença no histograma dos resíduos com a distribuição normal teórica é diferente zero
+
+para haver normalidade, neste caso, queremos H0 (que essa diferença seja 0) e portanto queremos o p-value>0,05 (sim, maior e não menor!). Como no nosso caso p-value é 0,000143 e portanto menor que 0,05, rejeitamos a hipótese nula, não é o que queríamos, pois significa que não há aderência entre distribuição normal e a distribuição real dos resíduos - motivo: ajustamos uma curva linear em dados que são claramente não lineares.
+
+```{r message=FALSE, warning=FALSE}
+library(nortest)
+sf.test(modelo_linear$residuals)
+```
+
+## box-cox
+
+Vamos refazer o ajuste com ajuste não linear com box-cox
+
+Criação do método em 1964: An Analysis of Transformations - JSTOR
+https://www.jstor.org/stable/2984418
+
+Transformar a y para que $y^*$ para que ela seja aderente a normalidade, pois a priori não temos os resíduos. Aumentando a probabilidade de y ser aderente a normalidade, aumentando a probabilidade dos resíduos que serão encotrados a posteriori também sejam aderente a normalidade. O parametro de boxcox, lamda, é o parametro que maximiza essa probabilidade.
+
+$y^* = \frac{y^{\lambda} - 1}{\lambda}$
+
+Qual o valor de lambda que maximiza y*? lambda igual a 1 é o caso linear.
+lambda igual a 0 é o caso logaritimico.
+
+lamda 2.659051 maxima y* e tende a gerar resíduos com maior probabilidade de aderência a normalidade.
+
+Normalização:
+$\frac{y_i^{\lambda} - 1}{\lambda} = \alpha + {\beta_1x_1}_i + {\beta_2x_2}_i + ... + {\beta_kx_k}_i + \epsilon_i$
+
+Lembrando que Normalização (muda a distribuição) é diferente de padronização!
+
+```{r message=FALSE, warning=FALSE}
+library(car)
+lambda_box_cox = powerTransform(data$comprimento)
+lambda_box_cox
+```
+y transformada com boxcox:
+```{r message=FALSE, warning=FALSE}
+data$comprimento_boxcox = ((data$comprimento^lambda_box_cox$lambda) - 1) /lambda_box_cox$lambda
+```
+
+Rodando novamente o modelo:
+```{r message=FALSE, warning=FALSE}
+modelo_boxcox = lm(formula = comprimento_boxcox ~ idade,data=data)
+summary(modelo_boxcox)
+```
+
+Verificando a aderência a normal dos novos resíduos:
+
+```{r message=FALSE, warning=FALSE}
+library(nortest)
+sf.test(modelo_boxcox$residuals)
+```
+
+p-value é 0.1026, ou seja, existe aderência dos termos dos resíduos.
+
+```{r message=FALSE, warning=FALSE}
+matriz_residuos = data
+matriz_residuos['residuos'] = modelo_boxcox$residuals
+```
+
+Histograma dos resíduos e curva teórica:
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+ggplot(data=matriz_residuos) +
+  geom_histogram(aes(y= ..density..,x=residuos)) +
+  stat_function(fun = dnorm, 
+                args = list(mean = mean(modelo_boxcox$residuals),
+                            sd = sd(modelo_boxcox$residuals)),
+                aes(color = "Curva Normal Teórica"),
+                size = 2)
+```
+Previsão para um bebe com 52 semanas de idade:
+```{r message=FALSE, warning=FALSE}
+y_boxcox = predict(modelo_boxcox,data.frame(idade=52))
+y_boxcox
+```
+
+Convertendo para y original o bebê teria 87,14 centrimetros:
+
+```{r message=FALSE, warning=FALSE}
+l = lambda_box_cox$lambda
+(y_boxcox*l+1)^(1/l)
+```
+
+
+## empresas
+
+empresas, previsão de retorno de preço de ação: 
+
+```{r message=FALSE, warning=FALSE}
+library(tibble)
+data = read.csv("data/empresas.csv")
+data = column_to_rownames(data,"empresa")
+```
+
+variável resposta será retorno.
+
+```{r message=FALSE, warning=FALSE}
+modelo_linear = lm(formula = retorno ~ .,data = data)
+summary(modelo_linear)
+```
+A varíavel endividamento não é estatisticamente signifcante para explicar o comportamento do retorno na presença das demais variáveis. 
+
+Quando tíramos endividamento a variável disclosure não fica significante:
+```{r message=FALSE, warning=FALSE}
+modelo_linear = lm(formula = retorno ~ . -endividamento,data = data)
+summary(modelo_linear)
+```
+
+O detalhe é que disclosure é estatisticamente significante quando sozinha. Mas não é estatisticamente significante na presença das demais variáveis:
+```{r message=FALSE, warning=FALSE}
+modelo_linear = lm(formula = retorno ~ disclosure,data = data)
+summary(modelo_linear)
+```
+
+O procedimento step-wise nos ajuda a identificar as variáveis que devem sair.
+
+```{r message=FALSE, warning=FALSE}
+critico = qchisq(p = 0.05, df =1, lower.tail = F)
+critico
+```
+
+```{r message=FALSE, warning=FALSE}
+modelo_linear = lm(formula = retorno ~ .,data = data)
+modelo_stepwise = step(modelo_linear, k = critico)
+summary(modelo_stepwise)
+```
+
+```{r}
+confint(modelo_stepwise,level = 0.95)
+```
+
+Aderência dos resíduos da normalidade:
+```{r}
+sf.test(modelo_stepwise$residuals)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+aux= data
+aux['residuos'] = modelo_stepwise$residuals
+
+ggplot(data=aux) +
+  geom_histogram(aes(y= ..density..,x=residuos)) +
+  stat_function(fun = dnorm, 
+                args = list(mean = mean(modelo_stepwise$residuals),
+                            sd = sd(modelo_stepwise$residuals)),
+                aes(color = "Curva Normal Teórica"),
+                size = 2)
+```
+
+lambda de box-cox:
+
+```{r}
+lambda = powerTransform(data$retorno)
+lambda
+```
+
+```{r}
+data$retorno_boxcox = (data$retorno^lambda$lambda-1)/lambda$lambda
+```
+
+```{r}
+modelo_normalizado = lm(formula = retorno_boxcox ~ liquidez+ativos+disclosure+endividamento ,data=data)
+summary(modelo_normalizado)
+```
+
+stepwise do modelo de boxcox e a disclore não será mais excluída:
+
+```{r message=FALSE, warning=FALSE}
+modelo_stepwise_boxcox = step(modelo_normalizado, k = critico)
+summary(modelo_stepwise_boxcox)
+```
+
+Verificando que existe aderência dos resíduos com a normalidade usando boxcox (náo podemos rejeitar a hipótese nula do teste):
+```{r}
+sf.test(modelo_stepwise_boxcox$residuals)
+```
+
+Stepwise: ste procedimento tem a propriedade de, automaticamente, excluir ou manter os betas do modelo em função da significância estatística definida. É possível aplicar o procedimento Stepwise para que sejam eliminadas as variáveis cujos parâmetros não se mostrarem estatisticamente significantes na presença de outras variáveis.
+
+A aderência da distribuição dos resíduos à normalidade, para amostras grandes, pode ser identificada por meio do teste de Shapiro-Francia.
+Quando a distribuição dos resíduos não se mostrar aderente à normalidade, procedimentos de normalização da variável dependente (ex.: Box-Cox) podem ser úteis para se estimar um modelo não linear.
+

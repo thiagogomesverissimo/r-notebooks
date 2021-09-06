@@ -1,0 +1,131 @@
+---
+title: "Multicolinearidade"
+output: html_notebook
+---
+
+ multicolinearidade pode gerar interpretações erradas do modelo pela eventual distorção dos sinais dos parâmetros.
+
+As notas influenciam no salário?
+
+```{r}
+library(tibble)
+data = read.csv("data/salarios.csv")
+data = column_to_rownames(data,"nome")
+```
+
+
+Correlação entre econometria1 e rh1:
+```{r}
+plot(data$econometria1,data$rh1)
+```
+Correlações:
+```{r}
+library(Rcpp)
+library(correlation)
+correlation(data[,1:3],method="pearson")
+```
+
+Correlações no gráfico:
+```{r}
+library(see) # for plotting
+library(ggraph) # needs to be loaded
+
+plot(correlation(data[,1:3],method="pearson"))
+```
+Modelo: 
+
+```{r}
+modelo1 = lm(formula = salario ~ rh1+econometria1,data=data)
+summary(modelo1)
+```
+
+```{r}
+critico = qchisq(p=0.05, df = 1, lower.tail = FALSE)
+modelo1_step = step(modelo1, k = critico)
+summary(modelo1_step)
+```
+
+Quando a correlação entre variáveis preditoras é perfeita o próprio modelo ou o stepwise já remove uma das variáveis. E quando não é?
+
+rh2 e econometria2:
+```{r}
+library(see) # for plotting
+library(ggraph) # needs to be loaded
+plot(correlation(data[,c(1,4,5)],method="pearson"))
+```
+
+O p-value do teste um F foi  2.495e-05, então a princípio pelo menos um beta deveria ser estatisticamente significante. Mas nem rh2 (0.226) e econometria2 (0.669). Qual o problema? Multicolinearidade.
+
+```{r}
+modelo2 = lm(formula = salario ~ rh2+econometria2,data=data)
+summary(modelo2)
+```
+
+Diagnóstico de multicolinearidade usando variation inflation factor e tolerance:
+```{r message=FALSE, warning=FALSE}
+library(olsrr)
+ols_vif_tol(modelo2)
+```
+
+Assim podemos indentificar multicolinearidade:
+- sianis inesperados dos coeficientes
+- testes t não significantes e teste F significante 
+
+O stepwise identifica a multicolinearidade:
+
+```{r}
+modelo2_step = step(modelo2,k=critico)
+summary(modelo2_step)
+```
+
+Terceiro caso com rh3 e econometria3:
+```{r}
+library(see) # for plotting
+library(ggraph) # needs to be loaded
+
+plot(correlation(data[,c(1,6,7)],method="pearson"))
+```
+
+```{r}
+modelo3 = lm(formula = salario ~ rh3+econometria3,data=data)
+summary(modelo3)
+```
+```{r}
+critico = qchisq(p=0.05, df = 1, lower.tail = FALSE)
+modelo3_step = step(modelo3, k = critico)
+summary(modelo3_step)
+```
+
+Será que rh3 e econometria3 estão correlacionadas?
+
+```{r}
+modelo3_aux = lm(formula = rh3 ~ econometria3,data=data)
+summary(modelo3_aux)
+```
+
+Diagnóstico de multicolinearidade usando variation inflation factor e tolerance:
+```{r message=FALSE, warning=FALSE}
+library(olsrr)
+ols_vif_tol(modelo3)
+```
+
+tolerência (de 1 à 0, queremos próximo de 1):
+```{r message=FALSE, warning=FALSE}
+tolerancia = 1-summary(modelo3_aux)$r.squared
+tolerancia
+```
+
+
+variation inflation factor (1 à infinito, não tem ponto de corte, mas acima de 5 já pode representar problema de multicolinearidade):
+```{r message=FALSE, warning=FALSE}
+1/tolerancia
+```
+
+
+multicolinearidade:
+
+As significâncias estatísticas dos parâmetros beta são sensíveis às correlações entre as variáveis explicativas.
+
+Uma multicolinearidade alta gera a redução no valor da estatística t, sem alteração no cálculo da estatística F.
+
+A multicolinearidade já pode ser identificada, preliminarmente, em diagramas de correlação entre variáveis preditoras. 

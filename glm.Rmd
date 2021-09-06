@@ -323,7 +323,7 @@ Os demais interceptos são todos com relação a Europa:
 ```{R}
 medias = aggregate(corrupcao$cpi ~ corrupcao$regiao, FUN=mean)
 medias$`corrupcao$cpi` - 6.258333
-```p
+```
 
 Criando o mesmo modelo, mas usando o dummy implicito do lm com re-level escolhido para europa:
 
@@ -340,3 +340,44 @@ O incremento amostral favorece a significância estatística do parâmetro corre
 o teste F Avalia a significância estatística conjunta dos parâmetros.
 
 Muitas são as classes de estimações que se inserem nos modelos GLM, tais como os modelos de regressão simples e múltipla, os modelos logísticos binários e multinomiais e os modelos para dados de contagem.
+
+## Resumo
+
+Valor real de $y_i$ para observação $i$ dado as $k$ variáveis:
+
+$y_i = \alpha + {\beta_1x_1}_i + {\beta_2x_2}_i + ... + {\beta_kx_k}_i + \epsilon_i$
+
+Sempre existirá o $\epsilon_i$.
+
+Já o valor estimado de $y_i$, isto é $\hat{y_i}$ desconsideramos o erro $\epsilon_i$:
+
+$\hat{y_i} = \alpha + {\beta_1x_1}_i + {\beta_2x_2}_i + ... + {\beta_kx_k}_i$
+
+Lembrando que para estimarmos os betas por minimosm quadrados ordinários consideremos que a somatória dos erros $\epsilon_i$ é zero e a somatória dos erros ao quadrado é a minima possível. 
+
+intercepto: valor resultante de quando todos valores de x forem matematicamente iguais a zero - norlamente não tem significado conceitual
+
+R2 dispersão da nuvem de pontos, coeficiente de ajuste, coeficiente de determinação, indicador da capacidade preditiva ou coeficiente do poder predtitivo: porcentagem de explicação de y devido as x consideradas
+
+1-R2 = o que não conseguimos capturar
+
+Quando o R2 está baixo significa que não selecionamos boas variáveis para predição. Podemos tentar aumentá-lo incluido mais variáveis.
+
+Nuvem dispersa gera R2 baixo, mas pode ter predição
+Poucas observações invalidam o R2, ou seja, a capacidade preditiva fica comprometida
+
+teste F: p-value < 0.05 tem modelo, ou seja, pelo menos um beta é estatisticamente signifcante a 95% de confiança - o alfa não importa para o teste F
+
+teste t para cada beta deve ser ter p-value < 0.05 senão removemos a varável. O alfa pode ter p-value > 0.05, mesmo neste caso, nós o mantemos no modelo.
+
+Ordem:
+
+1 - stepwise
+2 - teste shapiro-Francia para avaliar resíduos
+3 - Se teste shapiro-Francia não passar, aplicar box-cox na Y (será  Y*)
+4 - Com Y*, fazer  teste shapiro-Francia para avaliar NOVOS resíduos
+
+
+
+
+
