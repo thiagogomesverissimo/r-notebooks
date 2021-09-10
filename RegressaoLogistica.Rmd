@@ -1,0 +1,171 @@
+---
+title: "Regressão Logística "
+output: html_notebook
+---
+
+## Regressão Logística Binária
+
+Probabilidade de ocorrência do evento de interesse onde:
+
+- 1: ocorrência do evento
+- 0: não ocorrência do evento
+
+p = probabilidade de ocorrência do evento
+
+chance (ou odds) = probabilidade de ocorrência do evento dividido pela probabilidade de não ocorrência do evento:
+
+$chance = \frac{p}{1-p}$
+
+$LOGITO = Z = \alpha + {\beta_1x_1}_i + {\beta_2x_2}_i + ... + {\beta_kx_k}_i$
+
+Regressão Logística Binária
+
+$ln(chance) = ln(\frac{p}{1-p}) = \alpha + {\beta_1x_1}_i + {\beta_2x_2}_i + ... + {\beta_kx_k}_i$
+
+$ln(\frac{p}{1-p}) = Z$
+
+$\frac{p}{1-p} = e^Z$
+
+$p = \frac{e^Z}{1+e^Z}$
+
+$p = \frac{1}{1+e^{-Z}}$
+
+$p = \frac{1}{1+e^{-(\alpha + {\beta_1x_1}_i + {\beta_2x_2}_i + ... + {\beta_kx_k}_i)}}$
+
+Curva S ou sigmóide:
+
+- o logito varia de -infinito até infito
+- a probabibilidade varia de 0 à 1
+
+```{r}
+curve(1/(1+exp(-x)), from=-5, to=5, , xlab="logito", ylab="probabilidade")
+```
+
+No modelo logístico não temos resíduo, minimos quadrados e nem R2 (pois não temos variância). Os parâmetros estimados também não seguem uma estatística t, mas sim a estatística z. e também não temos a estatística F e sim o qui-quadrado.
+
+```{r}
+data = read.csv("data/atrasado.csv")
+```
+
+log likelihood - LL (logaritimo da verossimilhança)
+
+$LL = \sum  [y \ln(\frac{1}{1+e^{-Z}})] + [(1-y) \ln(\frac{1}{1+e^Z})] $
+
+queremos maximizar log likelihood, pois assim maximizamos a probabilidade de acertos previstos da y
+
+```{r}
+alfa=0 
+beta1=0
+beta2=0
+logito = alfa + beta1*data$dist + beta2*data$sem
+p = 1 / (1+exp(-logito))
+LL = data$atrasado*log(p)+(1-data$atrasado)*log(1-p)
+sum(LL)
+```
+
+Quais alfa, beta1 e beta2 que maximizam a somatória da loglikelihood?
+Estão calculados a seguir com a função glm
+
+```{r}
+alfa=-26.16654
+beta1=0.19038
+beta2=2.36288
+logito = alfa + beta1*data$dist + beta2*data$sem
+p = 1 / (1+exp(-logito))
+LL = data$atrasado*log(p)+(1-data$atrasado)*log(1-p)
+sum(LL)
+```
+
+Neste caso temos uma distribuição é aderente a distribuição de Bernoulli, que é uma distribuição de variável dicotomica (binária). Função denstidade de probabilidade da distribuição de Bernoulli:
+
+$p(y_i) = p_i^{y_i} (1-p_i)^{1-y_i}$
+
+No R a distribuição de Bernoulli é chamado binomial
+```{r}
+modelo = glm(formula = atrasado ~ dist + sem, data=data, family = binomial)
+summary(modelo)
+```
+
+```{r}
+logLik(modelo)
+```
+
+Com qui-quadrado podemos verificar se com inclusão de betas no modelo temos melhora comparado quando não o incluímos, ie, pelo menos um beta foi estatisticamente significante para explicar o modelo:
+
+```{r}
+LL0 = glm(formula = atrasado ~ 1,data=data, family = binomial)
+qui_quadrado = -2*(logLik(LL0) - logLik(modelo))
+qui_quadrado
+```
+
+```{r}
+pchisq(qui_quadrado, df =2, lower.tail = F)
+```
+
+```{r}
+library(jtools)
+summ(modelo)
+```
+
+com p-value foi 3.324122e-08 pelo menos um beta foi estatisticamente para explicar a probabilidade da y
+
+BIC, AIC, McFadden e CraggUhler são indicadores para compararmos modelos.
+
+AIC (Akaike Info Criterion)
+
+```{r}
+AIC = -2*(logLik(modelo))+2*3 # 3 alfa+ 2 betas
+AIC
+```
+
+Se tivermos dois modelos para compararmos, escolhemos o com menor AIC
+
+BIC (baysean Info Criterion)
+
+```{r}
+BIC = -2*(logLik(modelo))+3*log(nrow(data)) # 3 alfa+ 2 betas
+BIC
+```
+
+Se tivermos dois modelos para compararmos, escolhemos o com menor BIC
+
+Pseudo-R² (McFadden) = 0.25
+
+```{r}
+McFadden = (-2*logLik(LL0) - (-2*logLik(modelo))) / (-2*logLik(LL0))
+McFadden
+```
+
+Pseudo-R² (CraggUhler) = 0.39
+```{r}
+a1 = ( exp(logLik(LL0)) / exp(logLik(modelo)) ) ^(2/nrow(data))
+a2 = exp(logLik(LL0))^(2/nrow(data))
+CraggUhler = (1-a1)/(1-a2)
+CraggUhler
+```
+
+
+```{r warning=FALSE}
+library(jtools)
+export_summs(modelo)
+```
+Qual a probabilidade de chegar atrasado quando uma pessoa passou por 10 semaforos e andou 7 km?
+
+
+```{r}
+predict(object = modelo, data.frame(dist=7,sem=10),type="response")
+```
+
+Podemos fazer na mão:
+```{r}
+logito = predict(object = modelo, data.frame(dist=7,sem=10))
+1/(1+exp(-logito))
+```
+
+
+
+
+
+
+
+
