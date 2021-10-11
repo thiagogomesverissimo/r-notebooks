@@ -32,6 +32,10 @@ $p = \frac{1}{1+e^{-Z}}$
 
 $p = \frac{1}{1+e^{-(\alpha + {\beta_1x_1}_i + {\beta_2x_2}_i + ... + {\beta_kx_k}_i)}}$
 
+Probabilidade de não ocorrer o evento (y=0):
+
+$p_{y=0} = 1-\frac{1}{1+e^{-Z}} = \frac{1}{1+e^Z}$
+
 Curva S ou sigmóide:
 
 - o logito varia de -infinito até infito
@@ -51,7 +55,7 @@ log likelihood - LL (logaritimo da verossimilhança)
 
 $LL = \sum  [y \ln(\frac{1}{1+e^{-Z}})] + [(1-y) \ln(\frac{1}{1+e^Z})] $
 
-queremos maximizar log likelihood, pois assim maximizamos a probabilidade de acertos previstos da y
+queremos encontrar alfas e betas que maximizam log likelihood, pois assim maximizamos a probabilidade de acertos previstos da y
 
 ```{r}
 alfa=0 
@@ -76,7 +80,8 @@ LL = data$atrasado*log(p)+(1-data$atrasado)*log(1-p)
 sum(LL)
 ```
 
-Neste caso temos uma distribuição é aderente a distribuição de Bernoulli, que é uma distribuição de variável dicotomica (binária). Função denstidade de probabilidade da distribuição de Bernoulli:
+Neste caso temos uma distribuição é aderente a distribuição de Bernoulli, que é uma distribuição de variável dicotomica (binária). 
+Função densidade de probabilidade da distribuição de Bernoulli:
 
 $p(y_i) = p_i^{y_i} (1-p_i)^{1-y_i}$
 
@@ -145,7 +150,7 @@ CraggUhler
 ```
 
 
-```{r warning=FALSE}
+```{r message=FALSE, warning=FALSE}
 library(jtools)
 export_summs(modelo)
 ```
@@ -162,10 +167,398 @@ logito = predict(object = modelo, data.frame(dist=7,sem=10))
 1/(1+exp(-logito))
 ```
 
+Porque não podemos extrapolar nos modelos preditivos: perdemos a garantia da forma funcional da função
+
+quando LL é zero seria um ajsute perfeito, assim queremos sempre o maior valor de LL (ou menor em módulo)
+
+phat = probabilidade ajustada
+```{r}
+data$phat = modelo$fitted.values
+```
+
+Agora temos que definir um ponto de corte (cutoff)
+
+- evento acontece se phat >= cutoff
+- evento não acontece se phat < cutoff
+
+```{r}
+cutoff = 0.5
+```
+
+Matriz de confusão ou matriz de classificação:
+
+```{r message=FALSE, warning=FALSE}
+library(caret)
+tabela = table(preditos = data$phat >cutoff, medidos = data$atrasado == 1 )
+tabela = tabela[2:1,2:1]
+confusionMatrix(tabela)
+```
+Sensitivity : 0.7797  - Taxa de acerto do modelo para as observações classificadas como "evento".  46/59      
+Specificity : 0.6098  - Taxa de acerto do modelo para as observações classificadas como "não evento". 25/41 
+
+Análise de sensibilidade:
+
+```{r}
+library(ROCR)
+predicoes = prediction(predictions = modelo$fitted.values, labels = data$atrasado)
+
+sensitividade_roc = performance(predicoes, measure = "sens")
+especificidade_roc = performance(predicoes, measure = "spec")
+
+sensitividade = sensitividade_roc@y.values[[1]]
+especificidade = especificidade_roc@y.values[[1]]
+
+cutoffs = sensitividade_roc@x.values[[1]]
+dados_plotagens = data.frame(cutoffs,sensitividade,especificidade)
+```
+
+Análise de sensibilidade:
+
+```{r}
+library(tidyverse)
+ggplot(data=dados_plotagens, aes(x = cutoffs, y = especificidade)) +
+ geom_line(aes(color = "Especificidade"),
+           size = 1) +
+ geom_point(color = "#95D840FF",
+            size = 1.9) +
+ geom_line(aes(x = cutoffs, y = sensitividade, color = "Sensitividade"),
+           size = 1) +
+ geom_point(aes(x = cutoffs, y = sensitividade),
+            color = "#440154FF",
+            size = 1.9) +
+ labs(x = "Cutoff",
+      y = "Sensitividade/Especificidade") +
+ scale_color_manual("Legenda:",
+                    values = c("#95D840FF", "#440154FF")) +
+ theme_bw()
+```
+
+A intersecção não necessariamente maxima a acurácia.
 
 
+Curva ROC (receiver operating caracteristic), eficiência global do modelo independente do cutoff. 
+
+```{r message=FALSE, warning=FALSE}
+library(pROC)
+roc = roc(predictor = data$phat, response = data$atrasado)
+plot(roc)
+```
+
+Mesmo gráfico usando ggplot:
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+ggroc(roc, color = "#440154FF", size = 1) +
+  geom_segment(aes(x = 1, xend = 0, y = 0, yend = 1),
+               color="grey40",
+               size = 0.2) +
+  labs(x = "Especificidade",
+       y = "Sensitividade",
+       title = paste("Área abaixo da curva:",
+                     round(roc$auc, 3),
+                     "|",
+                     "Coeficiente de Gini",
+                     round((roc$auc[1] - 0.5) / 0.5, 3)))
+```
 
 
+Vamos sempre escolher o modelo com maior área abaixo da curva roc, que no geral é o  modelo com maior LL. E como aumentamos a área em baixo da curva ROC? aumentando a quantidade de parametro X cujo os parâmetros se mostraram estatisticamente significantes após o stepwise.
+
+Coeficiente de Gini: (roc-0.5)/0.5, outro indicador... redundante, pois a área abaixo de roc da a mesma informação.
 
 
+podemos comparar modelo com sensitividade, sensibilidade e acurácia para o MESMO cutoff
 
+ROC: Entretanto a área abaixo da curva ROC da a eficiência do modelo independente do cutoff
+
+quando a proporção de evento/não evento é diferente na amostra coletada da população devemos corrigir o alfa por um método descrito por Anderson(1982)
+
+Outro dataset:
+
+```{r message=FALSE, warning=FALSE}
+data = read.csv("data/challenger.csv")
+
+# criando variável resposta
+data$falha = 'nao'
+data[data$desgaste > 0, ]$falha = 'sim'
+data$falha = as.factor(data$falha)
+data$falha = relevel(data$falha, ref="nao")
+```
+
+modelo
+```{r message=FALSE, warning=FALSE}
+modelo = glm(formula = falha ~ . -desgaste -t, data=data, family="binomial")
+summary(modelo)
+```
+a pressão não interfere na probabilidade de ocorrência de uma falha
+
+```{r message=FALSE, warning=FALSE}
+step_modelo = step(object = modelo, k = qchisq(p=0.05, df=1, lower.tail = F))
+```
+```{r}
+library(jtools)
+summ(step_modelo, confint = T, digits = 4, ci.width = .95)
+```
+```{r}
+temperatura = 70 # farehneit
+logito = 23.7750 -0.3667*temperatura
+p = 1 / (1+exp(-logito))
+p
+```
+
+A função predict também faria:
+
+```{r}
+predict(object = step_modelo, data.frame(temperatura=70),type="response")
+```
+
+sigmódide:
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+novo = data
+novo$phat = step_modelo$fitted.values
+novo$falha = as.numeric(novo$falha) - 1
+
+ggplot(data=novo) +
+geom_point(aes(x = temperatura, y = falha), color = "#95D840FF", size = 2) +
+geom_smooth(aes(x = temperatura, y = phat), 
+            method = "glm", formula = y ~ x, 
+            method.args = list(family = "binomial"), 
+            se = F,
+            color = "#440154FF", size = 2) +
+labs(x = "Temperatura",
+     y = "Falha") 
+
+```
+
+```{r message=FALSE, warning=FALSE}
+library(pROC)
+roc = roc(predictor = novo$phat, response = data$falha)
+plot(roc)
+```
+
+Outro dataset:
+
+
+```{r message=FALSE, warning=FALSE}
+data = read.csv("data/fidelidade.csv")
+data$fidelidade = as.factor(data$fidelidade)
+data$fidelidade = relevel(data$fidelidade, ref="nao")
+
+data$sexo = as.factor(data$sexo)
+data$atendimento = as.factor(data$atendimento)
+data$sortimento = as.factor(data$sortimento)
+data$acessibilidade = as.factor(data$acessibilidade)
+data$preço = as.factor(data$preço)
+```
+
+modelo zuado
+```{r message=FALSE, warning=FALSE}
+modelo_zuado = glm(formula = fidelidade ~ idade, data = data, family = "binomial")
+summary(modelo_zuado)
+```
+
+modelo
+```{r message=FALSE, warning=FALSE}
+modelo1 = glm(formula = fidelidade ~ . -id, data = data, family = "binomial")
+summary(modelo1)
+```
+problema: quando a dummização não é feita manualmente a função step não consegue remover betas que não são significantes, como preço2:
+```{r message=FALSE, warning=FALSE}
+modelo_step1 = step(object = modelo1, k = qchisq(p=0.05, df =1, lower.tail = FALSE))
+summary(modelo_step1)
+```
+
+então vamos dumizar:
+
+```{r message=FALSE, warning=FALSE}
+library(fastDummies)
+colunas = c("atendimento","sortimento","acessibilidade","preço")
+data_dummies <- dummy_cols(data, select_columns = colunas, remove_selected_columns = T, remove_first_dummy = T)
+```
+
+```{r message=FALSE, warning=FALSE}
+modelo2 = glm(formula = fidelidade ~ . -id, data = data_dummies, family = "binomial")
+modelo_step2 = step(object = modelo2, k = qchisq(p=0.05, df =1, lower.tail = FALSE))
+summary(modelo_step2)
+```
+comparando os betas dos dois modelos:
+
+```{r message=FALSE, warning=FALSE}
+library(jtools)
+export_summs(modelo2, modelo_step2, scale = F,digits = 4)
+```
+
+teste qui-quadrado comparando as diferenças entre os loglik
+
+```{r message=FALSE, warning=FALSE}
+library(lmtest)
+lrtest(modelo2, modelo_step2)
+```
+Na unha:
+```{r message=FALSE, warning=FALSE}
+chi2_lrtest = 2*(  logLik(modelo2)- logLik(modelo_step2) )
+chi2_lrtest
+```
+Não tivemos diferença estatisticamente significantes entre os dois modelos
+
+
+```{r message=FALSE, warning=FALSE}
+library(lmtest)
+lrtest(modelo_zuado, modelo_step2)
+```
+Tivemos diferença estatisticamente significantes entre os dois modelos
+
+```{r message=FALSE, warning=FALSE}
+library(caret)
+tabela = table(predict(modelo_step2, type = "response") >= 0.5,data$fidelidade == "sim")[2:1, 2:1]
+confusionMatrix(tabela)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(pROC)
+roc_zuado = roc(predictor = modelo_zuado$fitted.values, response = data$fidelidade)
+plot(roc_zuado)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+library(pROC)
+roc_step2 = roc(predictor = modelo_step2$fitted.values, response = data$fidelidade)
+plot(roc_step2)
+```
+```{r message=FALSE, warning=FALSE}
+plot(roc_step2, col="blue")
+plot(roc_zuado, col="red", add=T)
+```
+
+A área da ROC zuado é menor, mas a diferença entre elas é significante??
+
+test de Comparação de Delong para comparar se a diferença entre as curvas ROC é significante:
+
+```{r message=FALSE, warning=FALSE}
+library(pROC)
+roc.test(roc_zuado,roc_step2)
+```
+true difference in AUC is not equal to 0, ou seja, a diferença entre os modelos é estatisticamente significante entre as duas ROCs dos dois modelos
+
+
+## regressão logistica multinomial
+
+variável y não é mais binária
+
+vamos dummizar a y neste caso
+
+Teremos "quandidade de categorias da y" - 1 logitos. Temos 3 categoras na y e portanto dois logitos.
+e "quandidade de categorias da y - 1"  vezes quantidade de variáveis x mais + alfa de parametros:2*(2+1)=6
+teremos 6 parametros nesse modelo
+
+```{r}
+data = read.csv("data/atrasado_multinomial.csv")
+data$atrasado = as.factor(data$atrasado)
+data$atrasado = relevel(data$atrasado, ref="n\xe3o chegou atrasado")
+```
+
+modelo
+```{r}
+library(nnet)
+modelo = multinom(formula = atrasado ~ dist+sem, data=data)
+summary(modelo)
+```
+
+```{r}
+logLik(modelo)
+```
+
+```{r}
+qui2 = function(x){
+  maximo = logLik(x)
+  minimo = logLik(update(x, ~1, trace = F))
+  qui.quadrado = 2*(maximo - minimo)
+  pvalue = pchisq(qui.quadrado, df=1,lower.tail = F)
+  return(data.frame(qui.quadrado, pvalue))
+}
+qui2(modelo)
+```
+Assim pelo menos um beta dos dois logitos são estatisticamente significantes
+
+
+Não são forncecidos no nnet as estatísticas z de Wald, nem os p-values das variáveis da modelagem.
+
+```{r}
+estatistica_z <- (summary(modelo)$coefficients / summary(modelo)$standard.errors)
+estatistica_z
+```
+Os valores são menores que -1.959964 ou maiores que 1.959964, ou seja, não tem valores na região que contém o zero (desconsidera o intercept)
+
+```{r}
+qnorm(0.025, lower.tail = F)
+```
+
+podemos olhar o p-values e estão todos < 0.05, os 4 betas são estatisticamente signicantes a 95% de confiança
+```{r}
+round(pnorm(abs(estatistica_z), lower.tail = F)*2,4)
+```
+
+predição para dist=22 e sem=12 para cada categora da variável dependente:
+```{r}
+predict(modelo, data.frame(dist=22,sem=12),type="probs")
+```
+
+Não faz sentido cutoff na multinomial, é selecionada a maior probabilidade:
+
+```{r}
+predict(modelo, data.frame(dist=22,sem=12),type="class")
+```
+
+coluna previsto
+```{r}
+data$previsto = predict(modelo, newdata = data ,type="class")
+```
+
+EGM - eficácia global do modelo:
+
+```{r}
+EGM = table(data$previsto,data$atrasado)
+EGM
+```
+
+Acurácia 89%:
+```{r}
+acuracia <- (round((sum(diag(EGM)) / sum(EGM)), 2))
+acuracia
+```
+
+Como a probabilidade de chegar ou não atrasado varia em função da quandidade de semaforos:
+
+```{r}
+library(tidyverse)
+library(reshape2)
+
+data[c("não chegou atrasado",
+                      "chegou atrasado à primeira aula",
+                      "chegou atrasado à segunda aula")] <- modelo$fitted.values
+
+data %>% 
+  dplyr::select(-previsto, - estudante) %>% 
+  rename(y = 1) %>% 
+  melt(id.vars = c("y","dist","sem"),
+       value.name = "probabilidades") %>% 
+  rename(categorias = variable) %>%
+  mutate(categorias = factor(categorias,
+                             levels = c("não chegou atrasado",
+                                        "chegou atrasado à primeira aula",
+                                        "chegou atrasado à segunda aula"))) %>% 
+  ggplot() +
+  geom_smooth(aes(x = sem, y = probabilidades, color = categorias), 
+              method = "loess", formula = y ~ x, se = F) +
+  labs(x = "Semáforos no Percurso",
+       y = "Probabilidades",
+       color = "Legenda:")
+
+```
+
+Um indicador bastante útil para se avaliar a eficiência de modelos de regressão logística binária, independentemente do cutoff: Área abaixo da curva ROC
+
+Sobre a regressão logística binária, podemos avaliar a qualidade do ajuste do modelo por meio dos seguintes indicadores: Valor de Log-Likelihood, Estatística Qui-quadrado (c²), AIC, BIC e área abaixo da curva ROC.

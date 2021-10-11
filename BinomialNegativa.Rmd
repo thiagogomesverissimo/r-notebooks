@@ -1,0 +1,270 @@
+---
+title: "Binomial Negativa"
+output: html_notebook
+---
+
+$\lambda$ é o valor esperado da distribuição de poisson, isto é, a média. 
+A variância também é matematicamente igual a média.
+
+# Dados do https://www.jstor.org/stable/10.1086/527495
+
+```{r}
+data = read.csv("data/corruption.csv")
+```
+
+Variável dependente: violations, que é numérica, de contagem e não negativa
+
+Não houve mudanças no staff antes e depois da lei:
+```{r}
+by(data = data$staff, INDICES = data$post, FUN=mean)
+```
+
+```{r}
+library(questionr)
+freq(data$violations)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+ggplot(data=data, aes(x=violations,fill=..count..)) +
+  geom_histogram(bins = round(2*nrow(data)^(1/3))) +
+  labs(x = "Quantidade de violações no trânsito", y =  "Freq")
+```
+
+Diagnóstico para verificar se média e variância são estatisticamente iguais, se sim, a variável y seria uam distribuição de poisson
+```{r}
+mean(data$violations)
+var(data$violations)
+```
+
+modelo poisson
+```{r}
+modelo_poisson = glm(violations ~ staff + post + corruption, data=data, family = "poisson")
+summary(modelo_poisson)
+```
+predição
+```{r}
+predict(object = modelo_poisson,
+        newdata=data.frame(staff=23,post="no",corruption=0.5),type="response")
+```
+
+```{r}
+exp(2.212739 + 23*0.021870 + 0*(-4.296762) + 0.5*0.341765)
+```
+
+```{r}
+predict(object = modelo_poisson,
+        newdata=data.frame(staff=23,post="yes",corruption=0.5),type="response")
+```
+
+```{r}
+library(jtools)
+modelo_poisson_nulo = glm(formula = violations ~ 1, data=data, family="poisson")
+summ(modelo_poisson_nulo)
+```
+
+```{r}
+chi2 = -2*( logLik(modelo_poisson_nulo)-logLik(modelo_poisson) )
+chi2
+```
+
+A função lrtest compara o modelo com o modelo nulo: 2753.7
+(compara o LL dos dois modelos para ver se são estatisticamente diferentes)
+```{r message=FALSE, warning=FALSE}
+library(lmtest)
+lrtest(modelo_poisson)
+```
+
+O poisson é o melhor modelo?
+
+Teste de superdispersão dos dados contagem de Cameron e Trivedi 1990.
+A variância é estatisticamente superior a média e consequentemente estamos numa superdispersão (lembrando que na distribuição de poisson a variância é matematicamente igual a média)
+
+
+```{r}
+data$lamda_poisson = modelo_poisson$fitted.values
+```
+
+
+$Y_i^* = \frac{[(Y_i - \lambda_{poisson_i})^2 - Y_i]}{\lambda_{poisson_i}}$
+
+$Y_i^* = \beta {\lambda_{poisson_i}}$
+
+
+```{r}
+data$y_estrela = ((data$violations-data$lamda_poisson)^2 - data$violations)/data$lamda_poisson
+```
+
+```{r}
+modelo_auxiliar = lm(formula = y_estrela ~ 0 + lamda_poisson, data=data)
+summary(modelo_auxiliar)
+```
+
+Como p-value 0.00625 é menor que 0.05 estamos diante de modelo com superdispersão, ou seja, a variancia é estatisticamente superior a média. Se fosse maior teríamos uma equidispersão
+
+```{r}
+library(overdisp)
+overdisp(x=data,dependent.position = 3, predictor.position = 4:6)
+```
+
+Distribuição Binomial Negativa ou Distribuição Gama
+$\theta$: paramtro de forma
+$\delta$: taxa de decaimento
+
+$p(Y_i=m) = \frac{\delta^\theta m_i^{\theta-1} e^{-m_i\delta} }{ (\theta-1)! }$
+
+```{r}
+delta=0.5
+teta=3
+m = 1:20
+p = ( (delta^teta)*(m^(teta-1)* exp(-m*delta) ) )/factorial(teta-1)
+plot(m,p)
+```
+
+
+lembrando: forma funcional do modelo de regressão para dados de contagem:
+
+$ln(\hat Y_i) = \alpha + \beta_1 x_{1_{i}} + \beta_2 x_{1_{2}} +  ... + \beta_3 x_{1_{3}}$
+
+Chamamos o $\hat Y_i$ de $\lambda$ que é o valor esperado da quantidade de ocorrências de determinado fenômeno.
+Característica do fenòmeno de contagem da variável Y: é uma quantidade, é não negativo, é discreto e com taxa de exposição
+
+Estimamos o $\alpha$ e os $\beta_i$ a partir de uma função de verossemelhança dada por meio de uma distribuição, função densidade de probabiblidade. Até então usamos a distribuição poisson que tem como propriedade a média e a variância de $\hat Y$ serem iguais. Para verificarmos se a média e a variância são estatisticamente iguais realizamos um teste de supersipersão proposto por Cameron e Trivet.
+Quando a variância é estatisticamente superior a média estamos diante do fenômeno de superdispersão. Netse caso usaramos a poisson gama (também chamada de binomial negativa ou NB2) e não mais possion. Corrigiremos então a variância:
+
+$Var(Y) = \lambda + \phi \lambda^2$
+
+$\phi = \frac{1}{\theta}$
+
+Se $\phi$ é zero teremos uma equidispersão.
+
+$ \phi \lambda^2$: termo de superdispersão
+
+Os dois procedimentos são equivalente:
+- Rodar o modelo de binomial negativa e testar se $ \phi $ é estatisticamente diferente de zero.
+- Ou não rodar modelo de binomial negativa e usar o Teste de Cameron e Trivet que testa de média e a variância são estatisticamente iguais.
+
+
+```{R message=FALSE, warning=FALSE}
+library(MASS)
+modelo_binomial_negativo = glm.nb(formula = violations ~ staff+post+corruption, data=data)
+summary(modelo_binomial_negativo)
+```
+
+```{r}
+logLik(modelo_poisson)
+```
+
+```{r}
+logLik(modelo_binomial_negativo)
+```
+
+```{r}
+modelo_binomial_negativo$theta
+```
+
+verificando se theta (ou phi) é estatisticamente diferente de zero. Se a divisão do theta pelo seu Standard Error for maior que 1.96, theta é estatisticamente diferente de zero e portanto garante a superdispersão:
+```{r}
+modelo_binomial_negativo$theta/modelo_binomial_negativo$SE.theta
+```
+
+```{r}
+library(jtools)
+export_summs(modelo_poisson, modelo_binomial_negativo,scale=F,model.names = c("poisson","gama"),digits=4)
+```
+Olhar para o AIC e não para o pseudo R2!
+
+Comparando os dois modelos:
+
+```{r}
+library(lmtest)
+lrtest(modelo_poisson, modelo_binomial_negativo)
+```
+
+Tivemos um ganho estatisticamente significante ( 2.2e-16) em favor do maior LL de -567.4.
+
+
+predição para staff igual a  23 membros, antes da lei e indice de corrupção de 0.5: 
+```{r}
+predict(object = modelo_binomial_negativo,
+        newdata=data.frame(staff=23,post="no",corruption=0.5),type="response")
+```
+
+Comparando os modelos considerando apenas o número de diplomatas:
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+data |>
+  ggplot() +
+  geom_point(aes(x=staff, y=violations)) +
+  geom_smooth(aes(x=staff, y=modelo_poisson$fitted.values),se=F,color="red") +
+  geom_smooth(aes(x=staff, y=modelo_binomial_negativo$fitted.values),se=F,color="blue")
+
+```
+
+Gerando um novo dataset no qual pegaremos somente as linhas com número de violações menores ou iguais que 3. Será que o fenômeno de superdispersão desaparece?
+
+```{r}
+library(questionr)
+freq(data$violations)
+```
+
+```{r}
+data2 = data[which(data$violations <= 3),1:6]
+```
+
+Eliminamos a cauda longa?
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+ggplot(data=data2, aes(x=violations,fill=..count..)) +
+  geom_histogram(bins = round(2*nrow(data)^(1/3))) +
+  labs(x = "Quantidade de violações no trânsito", y =  "Freq")
+```
+
+Variância é estatisticamente superior a média?
+```{r}
+mean(data2$violations)
+var(data2$violations)
+```
+
+
+```{r}
+modelo_poisson2 = glm(violations ~ staff + post + corruption, data=data2, family = "poisson")
+summary(modelo_poisson2)
+```
+
+Não tem superdipsersão, p-value é 0.7973:
+```{r}
+library(overdisp)
+overdisp(x=data2,dependent.position = 3, predictor.position = 4:6)
+```
+
+
+```{R message=FALSE, warning=FALSE}
+library(MASS)
+modelo_binomial_negativo2 = glm.nb(formula = violations ~ staff+post+corruption, data=data2)
+summary(modelo_binomial_negativo2)
+```
+é menor 1.96:
+```{r}
+modelo_binomial_negativo2$theta/modelo_binomial_negativo2$SE.theta
+```
+
+Agora os coeficientes são iguais:
+```{r}
+library(jtools)
+export_summs(modelo_poisson2, modelo_binomial_negativo2,scale=F,model.names = c("poisson","gama"),digits=4)
+```
+
+```{r}
+logLik(modelo_poisson2)
+logLik(modelo_binomial_negativo2)
+```
+
+Comparando os dois modelos para ver se LL são estisticamente diferentes, no caso não são pois chi2 é  0.596:
+
+```{r}
+library(lmtest)
+lrtest(modelo_poisson2, modelo_binomial_negativo2)
+```
+
+Resumo: quando não há superdispersão o modelo binomial negativo regride ao modelo de poisson dando os mesmo coeficientes.
