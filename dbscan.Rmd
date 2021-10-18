@@ -5,7 +5,7 @@ output:
     df_print: paged
 ---
 
-Método de  clusterização não paramétrico baseado  em  densidade
+Método de  clusterização não paramétrico baseado em densidade:
 
 leitura dos dados:
 ```{r}
