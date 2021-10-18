@@ -1,0 +1,156 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Artigo de referência: https://www.jstor.org/stable/1269547
+
+Zero Inflated Poissson: poisson + bernoulli
+
+Inflação de zero é uma logistica binária em que consideramos a probabilidade de não ocorrência de zero:
+
+função densidade de probabilidade:
+
+$p(Y_i=0) = P_{logit} + (1-P_{logit} ) e^{-\lambda_i}$
+
+
+
+$p(Y_i=m) = (1-P_{logit} ) \frac{e^{-\lambda_i} \lambda_i}{m!}$
+
+```{r}
+library(ggplot2)
+m = 1:20
+lambda=1
+plogit = 0.7
+p0=plogit+(1-plogit)*exp(-lambda)
+p=(1-plogit)*(exp(-lambda)*lambda^m)/(factorial(m))
+data=data.frame(m=c(0,m),p=c(p0,p))
+ggplot(data, aes(x=m, y=p)) + 
+  geom_bar(stat = "identity")
+```
+zeros = zeros estruturais (bernoulli) + zeros amostrais (poisson)
+Os modelos de regressão Poisson inflacionados de zeros:
+Apresentam dois processos geradores de zeros, sendo um devido à distribuição binária (neste caso, são gerados os chamados zeros estruturais) e outro devido à distribuição Poisson (nesta situação, são gerados dados de contagem, entre os quais os chamados zeros amostrais).
+
+Temos que fazer o stepwise para bernoulli e para o poisson.
+
+Para bernoulii somente corruption é estatisticamente significante. Para poisson as três são (staff, post corruption). 
+
+```{r message=FALSE, warning=FALSE}
+data = read.csv("data/corruption.csv")
+library(pscl)
+# preditoras poission | preditoras Bernoulli 
+modelo_zip = zeroinfl(formula = violations ~ staff+post+corruption | corruption,data=data,dist="poisson")
+summary(modelo_zip)
+```
+Coeficiente de corrupção no Bernoulli é -0.9524, ou seja, quanto maior a corrupção, menor a probabiblidade de ocorreência do evento zero. Já na poisson o coeficiente de corrupção é positivo 0.093714, ou seja, quanto maior a corrupção maior a probabilidade de ocorrência de violaçao.
+
+```{r}
+logLik(modelo_zip)
+```
+
+modelo poisson e gama para comparação:
+```{r message=FALSE, warning=FALSE}
+library(MASS)
+modelo_poisson = glm(violations ~ staff + post + corruption, data=data, family = "poisson")
+modelo_binomial_negativo = glm.nb(formula = violations ~ staff+post+corruption, data=data)
+```
+
+Comparação dos modelos de poisson sem inflação de zeros e com inflação de zeros, teste de vuong:
+```{r message=FALSE, warning=FALSE}
+vuong(m1=modelo_poisson, m2=modelo_zip)
+```
+
+p-value é 0.0014049 ou seja, temos inflação de zeros.
+
+Mas os modelos são estatisticamente diferentes? São em favor do modelo zip:
+
+```{r message=FALSE, warning=FALSE}
+library(lmtest)
+lrtest(modelo_poisson,modelo_zip)
+```
+
+predição para staff igual a 23 membros, antes da lei e indice de corrupção de 0.5: 
+```{r}
+predict(object = modelo_zip,
+        newdata=data.frame(staff=23,post="no",corruption=0.5),type="response")
+```
+
+Na unha:
+```{r}
+staff=23
+postyes=0
+corruption=0.5
+
+a=-1.6117 - 0.9524*corruption
+b=2.488857 + staff*0.020020 -4.287651*postyes + 0.093714*corruption
+
+(1 - ( 1/ (1+exp(-a)) ) )* exp(b)
+
+```
+
+
+## zero inflated + dispersão ZINB - zero inflated Binomial Negativa
+
+```{r}
+library(ggplot2)
+m = 1:20
+lambda=2
+plogit = 0.7
+theta = 2
+delta = 2
+
+p0=plogit+(1-plogit)*(1/(1+theta^-1 * lambda)^theta)
+
+p=(1-plogit)* ( delta^theta*m^(theta-1)*exp(-m*delta) )/(factorial(theta-1))
+plot(c(0,m),c(p0,p))
+
+```
+
+
+
+```{r message=FALSE, warning=FALSE}
+library(pscl)
+modelo_zinb = zeroinfl(formula = violations ~ staff+post+corruption | corruption,data=data,dist="negbin")
+summary(modelo_zinb)
+```
+
+```{r message=FALSE, warning=FALSE}
+logLik(modelo_zinb)
+```
+
+```{r message=FALSE, warning=FALSE}
+modelo_zinb$theta
+```
+
+```{r message=FALSE, warning=FALSE}
+vuong(m1=modelo_binomial_negativo, m2=modelo_zinb)
+```
+
+Incremento no ll significativo:
+```{r message=FALSE, warning=FALSE}
+library(lmtest)
+lrtest(modelo_binomial_negativo,modelo_zinb)
+```
+
+$\lambda_{zinb} = [1 - \frac{1}{1+e^{-logit}}] [e^{logit}]$
+
+Predições:
+```{r}
+predict(object = modelo_zinb, newdata=data.frame(staff=23,post="no",corruption=0.5),type="response")
+```
+
+
+
+
+```{r}
+predict(object = modelo_binomial_negativo, newdata=data.frame(staff=28,post="no",corruption=1),type="response")
+```
+
+modelos de regressão do tipo binomial negativo com inflação de zeros:
+I) A probabilidade p de ocorrência de nenhuma contagem para dada observação i, ou seja, p(Yi = 0), é calculada levando-se em consideração a soma de um componente dicotômico com um componente de contagem.
+
+II) A probabilidade p de ocorrência de determinada contagem m (m = 1, 2, ...), ou seja, p(Yi = m), segue a expressão da probabilidade da distribuição Poisson-Gama.
+
+III) Apresentam parâmetros estimados por máxima verossimilhança.
+
