@@ -2,11 +2,345 @@
 title: "Multinível"
 output: html_notebook
 ---
+https://www.youtube.com/watch?v=cr9RpSgRYVw
+
+São modelos que reconhecem a existência de estrutura hierárquica ou contextual nos dados.
+
+Nomes: GLMM, Modelagem Hierárquica, GLLAMM, Random Coefficients Modeling, Mixed Modeling.
+
+ Os modelos tradicionais de regressão ignoram as interações entre variáveis no componente de efeitos fixos e as interações entre termos de erro e variáveis no componente de efeitos aleatórios, ao contrário dos modelos multinível.
+ 
+
+```{r}
+data = read.csv("data/estudante_escola.csv")
+```
+
+Temos 10 escolas:
+```{r}
+table(data$escola)
+```
+
+texp (tempo médio de experiência dos professores) é uma variável w, ou seja, é invariante em cada escola.
 
 
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+data |>
+  group_by(escola) |>
+  summarise(quantidade = n())
+```
+Escola 8 os alunos vão bem e escola 5 não. Pq?
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+data |>
+  group_by(escola) |>
+  summarise('Nota média' = mean(desempenho))
+```
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+data |>
+  group_by(escola) |>
+  mutate(nota_media = mean(desempenho)) |> 
+  ggplot() +
+  geom_point(aes(x=escola,y=desempenho),color="red") +
+  geom_line(aes(x=escola,y=nota_media),color="blue") +
+  theme(axis.text.x = element_text(angle = 90))
+```
+cada ponto é um aluno.
 
 
 ```{r}
-
+data |>
+  ggplot(aes(x = desempenho)) +
+  geom_density(aes(x = desempenho),position = "identity") +
+  geom_histogram(aes(y = ..density..), color="white", fill = "deepskyblue", bins = 30)
 ```
 
+```{r}
+data |>
+  ggplot(aes(x = horas, y = desempenho)) +
+  geom_smooth(method = "lm", formula = y ~ x, se = F) +
+  geom_point() +
+  scale_colour_viridis_d() +
+  labs(x = "Quantidade Semanal de Horas de Estudo do Aluno",
+       y = "Desempenho Escolar")
+```
+Captura intra escola dos efeitos aleatório do intercepto e de inclinação
+```{r}
+data |>
+    ggplot(aes(x = horas, y = desempenho, color = as.factor(escola))) +
+    geom_smooth(method = "lm", formula = y ~ x, se = F) +
+    geom_point() +
+    guides(color = F) +
+    scale_colour_viridis_d() +
+    labs(x = "Quantidade Semanal de Horas de Estudo do Aluno",
+         y = "Desempenho Escolar")
+```
+
+```{r}
+data |>
+  ggplot(aes(x = desempenho)) +
+    geom_density(aes(color = as.factor(escola), fill = as.factor(escola)), 
+                 position = "identity", alpha = 0.3) +
+    scale_color_viridis_d() +
+    scale_fill_viridis_d() +
+    theme_classic()
+```
+
+Modelo Nulo (não tem variável x -  somente intercepto):
+```{r message=FALSE, warning=FALSE}
+library(nlme)
+modelo_nulo_hlm2 <- lme(fixed = desempenho ~ 1, 
+                        random = ~ 1 | escola, # contexto 
+                        data = data,
+                        method = "REML") # Restricted Estimation of maximum LL
+summary(modelo_nulo_hlm2)
+```
+
+A variância dos efeitos aleatórios de intercepto é estatisticamente diferente de zero, esse modelo mostra que a consideração do contexto escola no modelo multinível é superior aos outros modelos glm.
+```{r}
+#Verificando a funcionalidade da função 'stderr_nlme' desenvolvida
+source('vendor/stderr_nlme.R')
+```
+
+```{r}
+stderr_nlme(modelo_nulo_hlm2)
+```
+
+ICC (intraclass correlation): 74% da variação do desempenho é devido ao efeito escola.
+```{r message=FALSE, warning=FALSE}
+icc_escola = 414.1005/(414.1005+142.9239)
+icc_escola
+```
+
+OLS nulo:
+```{r message=FALSE, warning=FALSE}
+library(lmtest)
+modelo_ols_nulo <- lm(formula = desempenho ~ 1, data = data)
+lrtest(modelo_ols_nulo, modelo_nulo_hlm2)
+```
+
+### Modelo MultiNivel com interceptos aleatórios - HLM2 
+
+```{r message=FALSE, warning=FALSE}
+library(nlme)
+modelo_hlm2_intercepto <- lme(fixed = desempenho ~ horas, 
+                   random = ~ 1 | escola,
+                   data = data,
+                   method = "REML")
+summary(modelo_hlm2_intercepto)
+```
+
+p-value de horas é 0.0000, ou seja, existe significância estatística na taxa de desempenho na medida que aumenta-se a quantidade horas de estudos.
+
+Componente de efeitos aleatórios do intercepto: StdDev:    21.93675 5.617098
+
+Existe significância estatística do efeito aleatório de intercepto v0j no nível escola, pois seu p-value é 0.034. Existem diferença significativa no intercepto entre as escolas: efeito escola. 
+
+i = aluno
+j = escola
+
+Desempenho_ij = 4.529998 + 1.969615*horas_ij + v0j + epsilon_ij
+
+```{r message=FALSE, warning=FALSE}
+stderr_nlme(modelo_hlm2_inclinacao)
+```
+
+### Modelo MultiNivel com interceptos aleatórios e inclinações aleatórias
+
+as taxas de inclinação agora permitem efeitos aleatórios.
+As retas são paralelas? se forem parelas a variância dos efeitos aleatórias de inclinação no nível escola não seriam estatisticamente diferente de zero, e portanto, os efeitos aleatórias de inclinação no nível escola naõ tem significancia estatistica.
+
+
+```{r message=FALSE, warning=FALSE}
+library(nlme)
+modelo_hlm2_inclinacao_e_intercepto <- lme(fixed = desempenho ~ horas, 
+                                                   random = ~ horas | escola,
+                                                   data = data,
+                                                   method = "REML")
+summary(modelo_hlm2_inclinacao_e_intercepto)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+stderr_nlme(modelo_hlm2_inclinacao_e_intercepto)
+```
+v0j - efeitos aleatórios de intercepto foi estatisticamente significante
+v1j - efeitos aleatórios de inclinação foi estatisticamente significante
+
+i = aluno
+j = escola
+
+Desempenho_ij = 7.120545 + 1.894527 * horas_ij + v0j + v1j * horas_ij + epsilon_ij
+
+### Modelo MultiNivel com interceptos aleatórios e inclinações aleatórias com todas variáveis preditivas
+
+Capturamos o interação entre variáveis preditoras.
+
+```{r message=FALSE, warning=FALSE}
+library(nlme)
+modelo_final <- lme(fixed = desempenho ~ horas + texp + horas:texp, 
+                            random = ~ horas | escola,
+                            data = data,
+                            method = "REML")
+summary(modelo_final)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+stderr_nlme(modelo_final)
+```
+v0j - efeitos aleatórios de intercepto NÃO foi estatisticamente significante - mas alguns autores discutem que podemos flexibilizar aqui
+v1j - efeitos aleatórios de inclinação foi estatisticamente significante
+
+i = aluno
+j = escola
+
+Desempenho_ij = -0.8495955 + 0.7134608 * horas_ij + + 1.5852559 * texp_j (componentes de efeitos fixos)
+                +0.2318290 * horas_ij * texp_j  +                        (componentes de efeitos fixos)
+                v0j + v1j * horas_ij + epsilon_ij                        (componentes de efeitos aleatórios)
+
+epsilon_ij: efeito idiosincratico no nível estudante
+
+## Como calcular v0j e v1j - efeitos aleatórios
+
+Examplo: A Escola 2 tem um intercepto de 1.2915001 e inclinação de -0.278181129.
+```{r}
+vs = data.frame(modelo_final[["coefficients"]][["random"]][["escola"]])
+colnames(vs) = c('v0j', 'v1j')
+vs
+```
+
+```{r}
+vs = data.frame(modelo_final[["coefficients"]][["random"]][["escola"]])
+colnames(vs) = c('v0j', 'v1j')
+vs
+```
+
+Valores preditos
+
+```{r}
+data$fitted_values = predict(modelo_final, data)
+```
+
+fitted values por estudante e por escola:
+ 0 é o nível estudante e 1 é o nível escola:
+```{r}
+predict(modelo_final, level = 0:1) |> 
+  mutate(escola = gsub("^.*?\\/","",escola),
+         escola = as.factor(as.numeric(escola)),
+         desempenho = data$desempenho,
+         etjk = resid(modelo_final)) |> #função resid gera os termos etjk
+  select(escola, desempenho, everything())
+```
+
+
+Quais os valores previstos de desempenho escolar, para dado aluno que estuda na escola "1", sabendo-se que ele estuda 11h semanais, e que a escola oferece tempo médio de experiência de seus professores igual a 3.6 anos? 
+
+
+```{r}
+newdata = data.frame(escola = "1", horas = 11, texp = 3.6)
+predict(modelo_final, level = 0:1, newdata=newdata )
+```
+
+Dado:
+
+Desempenho_ij = -0.8495955 + 0.7134608 * horas_ij + + 1.5852559 * texp_j (componentes de efeitos fixos)
+                +0.2318290 * horas_ij * texp_j  +                        (componentes de efeitos fixos)
+                v0j + v1j * horas_ij + epsilon_ij                        (componentes de efeitos aleatórios)
+                
+fixed:
+```{r}
+horas_ij = 11
+texp_j = 3.6
+-0.8495955 + 0.7134608 * horas_ij + + 1.5852559 * texp_j + 0.2318290 * horas_ij * texp_j
+```
+
+escola - predict de cada estudante
+
+```{r}
+horas_ij = 11
+v0j = -0.2113827  # Escola 1
+v1j = 0.438811425	# Escola 1
+v0j + v1j * horas_ij + 21.88582 # fixo
+```
+
+
+Quando as variância dos termos aleatórios (intercepto e inclinação) forem estatisticamente diferente de zero, procedimentos tradicionais, como minimos quadrados ordinários, não são adequados para estimação dos parametros do modelo. 
+O Contexto pode ser observável ou latente (como um grupo output do cluster).
+
+LogLik dos Modelos:
+
+- modelo_ols_nulo: Modelo OLS Nulo = -1633.485
+- modelo_nulo_hlm2: Modelo MultiNivel Nulo = -1416.007
+- modelo_hlm2_intercepto: Modelo MultiNivel com interceptos aleatórios = -1155.247
+- modelo_hlm2_inclinacao_e_intercepto: MultiNivel com interceptos e inclinações aleatórias = -906.8028
+- modelo_final: MultiNivel com interceptos e inclinações aleatórias com todas preditivas = -894.5684
+
+### Comparando com o modelo OLS
+
+```{r}
+modelo_ols = lm(formula = desempenho ~ horas + texp, data=data)
+logLik(modelo_ols)
+```
+
+Tem diferença siginificativa em favor do multinível:
+```{r message=FALSE, warning=FALSE}
+library(lmtest)
+lrtest(modelo_ols, modelo_final)
+```
+
+### Comparando com o modelo OLS com dummies
+
+Primeira escola como referência:
+```{r message=FALSE, warning=FALSE}
+library(fastDummies)
+estudante_escola_dummies <- dummy_cols(.data = data,
+                                       select_columns = "escola",
+                                       remove_first_dummy = TRUE,
+                                       remove_selected_columns = TRUE)
+```
+
+modelo
+```{r message=FALSE, warning=FALSE}
+
+modelo_ols_dummies <- lm(formula = desempenho ~ horas + texp + escola_2 +
+                           escola_3 + escola_4 + escola_5 + escola_6 +
+                           escola_7 + escola_8 + escola_9 + escola_10,
+                           data = estudante_escola_dummies)
+summary(modelo_ols_dummies)
+```
+escola_10 não tem difença estatisticamente significante em relação a escola 1.
+
+Procedimento stepwise
+```{r message=FALSE, warning=FALSE}
+modelo_ols_dummies_step <- step(object = modelo_ols_dummies,
+                                step = qchisq(p = 0.05, df = 1,
+                                              lower.tail = FALSE))
+```
+
+```{r}
+logLik(modelo_ols_dummies_step)
+```
+
+Tem diferença siginificativa em favor do multinível:
+```{r message=FALSE, warning=FALSE}
+library(lmtest)
+lrtest(modelo_ols_dummies_step, modelo_final)
+```
+
+
+modelo ols dummies com interação:
+```{r message=FALSE, warning=FALSE}
+
+modelo_ols_dummies2 <- lm(formula = desempenho ~ horas + texp + horas:texp +escola_2 +
+                           escola_3 + escola_4 + escola_5 + escola_6 +
+                           escola_7 + escola_8 + escola_9 + escola_10,
+                           data = estudante_escola_dummies)
+
+modelo_ols_dummies_step2 <- step(object = modelo_ols_dummies2,
+                                step = qchisq(p = 0.05, df = 1,
+                                              lower.tail = FALSE))
+logLik(modelo_ols_dummies_step2)
+```

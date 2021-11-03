@@ -1,0 +1,215 @@
+---
+title: "Multinível com 3 níveis - longitudinal"
+output: html_notebook
+---
+
+```{r}
+#Verificando a funcionalidade da função 'stderr_nlme' desenvolvida
+source('vendor/stderr_nlme.R')
+```
+
+Multinível com 3 níveis com com mais de uma medida - longitudinal
+Nível 1 = período
+Nível 2 = Indivíduo
+Nível 3 = Grupo
+
+15 escola
+4 meses
+
+```{r}
+data = read.csv("data/tempo_estudante_escola.csv")
+
+data$escola = as.factor(data$escola)
+data$ativ = as.factor(data$ativ)
+```
+
+Condiderando apenas efeito aleatório de interceto:
+```{r}
+modelo_nulo_hlm3 <- lme(fixed = desempenho ~ 1,
+                        random = list(escola = ~1, estudante = ~1),
+                        data = data,
+                        method = "REML")
+summary(modelo_nulo_hlm3)
+```
+
+desempenho = 68.71395 + v0jk + t00k + epsilon
+
+```{r}
+stderr_nlme(modelo_nulo_hlm3)
+```
+ICC - intraclass correlation para nível escola
+```{r}
+180.19266/(180.19266+325.79915+41.64939)
+```
+33% da variação do desempenho ao longo do tempo não é devido ao corportamento do próprio aluno e sim devido ao efeito da diferença entre as escola
+
+ICC - intraclass correlation para nível estudante
+```{r}
+325.79915/(180.19266+325.79915+41.64939)
+```
+59% da variação do desempenho ao longo do tempo é devido ao corportamento do próprio aluno e não devido ao efeito da diferença entre as escola
+
+
+ICC - intraclass correlation para nível tempo
+```{r}
+41.64939/(180.19266+325.79915+41.64939)
+```
+
+7% da variação do desempenho ao longo do tempo é devido ao corportamento do próprio aluno e sim devido ao efeito da evolução temporal
+
+```{r message=FALSE, warning=FALSE}
+library(lmtest)
+modelo_ols_nulo <- lm(formula = desempenho ~ 1,data = data)
+lrtest(modelo_ols_nulo, modelo_nulo_hlm3)
+```
+
+```{r}
+modelo_intercept_inclin_hlm3 <- lme(fixed = desempenho ~ mes,
+                                    random = list(escola = ~mes, estudante = ~mes),
+                                    data = data,
+                                    method = "REML")
+summary(modelo_intercept_inclin_hlm3)
+```
+
+```{r}
+stderr_nlme(modelo_intercept_inclin_hlm3)
+```
+
+desempenho_tjk  = 57.85612 + 4.33651 * mes_jk + v0jk + v1jk * mes_jk + t00k + t10k * mes_jk + epsilon_tjk
+
+t00k = efeito aleatório de intercepto do desempenho entre alunos proveniente de escolas distintas
+t10k = efeito aleatório na taxa de crescimento ao longo do tempo no desempenho entre alunos proveniente de escolas distintas
+v0jk = efeito aleatório de intercepto no nível aluno
+v1jk = efeito aleatório nas taxas de crescimento do desempenho ao longo do tempo entre aluno
+
+```{r}
+lrtest(modelo_nulo_hlm3, modelo_intercept_inclin_hlm3)
+```
+
+Estimação do modelo com Tendência Linear, Interceptos e Inclinações Aleatórios
+e as variáveis mês de nível 1 , 'ativ' de Nível 2 e 'texp' de Nível 3
+```{r}
+modelo_completo_hlm3 = lme(fixed = desempenho ~ mes + ativ + texp +
+                              ativ:mes + texp:mes,
+                            random = list(escola = ~mes, estudante = ~mes),
+                            data = data,
+                            method = "REML")
+summary(modelo_completo_hlm3)
+```
+
+```{r}
+stderr_nlme(modelo_completo_hlm3)
+```
+
+desempenho_tjk  = 40.03222 + 5.16752 * mes_jk + 14.70212 * ativ_jk
+1.17866 * texp_k -0.65190 * ativ_jk * mes_jk -0.05665 * texp_k * mes_jk
++ v0jk + v1jk * mes_jk + t00k + t10k * mes_jk + epsilon_tjk
+
+
+```{r}
+lrtest(modelo_intercept_inclin_hlm3, modelo_completo_hlm3)
+```
+
+Acessar valores de v0jk e v1jk (efeitos aleatórios de intercepto e 
+de inclinação no nível estudante, respectivamente) e de t00k e t10k (efeitos
+aleatórios de intercepto e de inclinação no nível escola, respectivamente):
+
+Nível estudante:
+```{r}
+aux1 = random.effects(modelo_completo_hlm3)[["estudante"]]
+colnames(aux1) = c('v0jk','v1jk')
+aux1
+```
+
+Nível escola:
+```{r}
+aux2 = random.effects(modelo_completo_hlm3)[["escola"]]
+colnames(aux2) = c('t00k','t10k')
+aux2
+```
+
+```{r}
+predict(modelo_completo_hlm3, level = 0:2) |>
+  mutate(estudante = gsub("^.*?\\/","",estudante),
+         estudante = as.factor(as.numeric(estudante)),
+         escola = as.factor(as.numeric(escola)),
+         mes = data$mes,
+         desempenho = data$desempenho,
+         etjk = resid(modelo_completo_hlm3)) %>% #função resid gera os termos etjk
+  rename("fitted fixed" = 3,
+         "fitted escola" = 4,
+         "fitted estudante" = 5) %>%
+  select(escola, estudante, mes, desempenho, everything())
+```
+
+nível 0  = tempo
+nível 1 = alunos
+nível 2 = escola
+
+quais os valores previstos de desempenho escolar no primeiro mês (mes = 1) para o estudante "1" da escola "1", sabendo-se que esta escola oferece tempo médio de experiência de seus professores igual a 2 anos?
+detalhe: na variável factor atividade temos que colocar todas opções, no caso sim e não.
+
+```{r}
+newdata = data.frame(escola = "1", estudante = "1", mes = 1, ativ = c("não","sim"),texp = 2)
+predict(modelo_completo_hlm3, level = 0:2,newdata=newdata)
+```
+
+Na unha:
+```{r}
+mes_jk=1
+ativ_jk = 0 # não
+texp_k = 2
+fixed = 40.03222 + 5.16752 * mes_jk + 14.70212 * ativ_jk + 1.17866 * texp_k -0.65190 * ativ_jk * mes_jk -0.05665 * texp_k * mes_jk
+fixed
+```
+
+```{r}
+mes_jk=1
+t00k = -2.1820191	  # escola 1
+t10k = -0.11857340  # escola 1
+escola = t00k + t10k * mes_jk
+escola
+```
+
+
+```{r}
+v0jk = -8.6717200 # aluno 1
+v1jk = 0.319455845	
+estudante = v0jk + v1jk * mes_jk + escola
+estudante
+```
+
+```{r}
+fixed+estudante
+```
+
+COMPARAÇÃO COM UM MODELO OLS COM DUMMIES 
+
+
+
+```{r}
+base_dummizada <- dummy_cols(.data = data,
+                             select_columns = "escola",
+                             remove_first_dummy = T,
+                             remove_selected_columns = TRUE)
+```
+
+Estimando um modelo OLS com as mesmas variáveis do modelo HLM3
+```{r}
+modelo_ols_dummies <- lm(formula = desempenho ~ . + ativ:mes + texp:mes - estudante,
+                         data = base_dummizada)
+```
+
+```{r}
+modelo_ols_dummies_step <- step(object = modelo_ols_dummies,
+                                k = qchisq(p = 0.05, df = 1, lower.tail = FALSE))
+```
+
+```{r}
+logLik(modelo_ols_dummies_step)
+logLik(modelo_completo_hlm3)
+```
+
+```{r message=FALSE, warning=FALSE}
+lrtest(modelo_ols_dummies_step, modelo_completo_hlm3)
+```

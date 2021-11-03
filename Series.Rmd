@@ -1,0 +1,135 @@
+---
+title: "Séries"
+output: html_notebook
+---
+
+```{r}
+data = read.csv("data/vendas.csv")
+```
+
+```{r}
+plot(data$id,data$vendas,type = "b")
+```
+Há uma tendência de alta com intercepto de 434.3619 e beta de 1.6921.
+
+```{r}
+model = lm(formula = vendas ~ id, data=data)
+summary(model)
+```
+```{r}
+data$tendencia_linear = 434.3619 + data$id*1.6921
+```
+
+Média por mês para investigarmos a sazonalidade:
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+library(tidyverse)
+
+data2 = data |>
+        group_by(mes) |>
+        summarise_at(.vars = "vendas",.funs = c(mean="mean"))
+data2$porcentagem_da_media_total = data2$mean/mean(data$vendas)
+data2
+```
+
+Exemplo: em janeiro vende-se em média 95,3% do que se vende ao longo do ano.
+Em julho e agosto vende-se em meia 6% a mais que ao longo do ano.
+
+Tendência e Sazonalidade juntas:
+
+```{r}
+data$tendencia_e_sazonalidade  = NULL
+# 
+for (row in 1:nrow(data)) {
+    mes = data[row, "mes"]
+    porcentagem_da_media_total = data2[data2$mes == mes,]$porcentagem_da_media_total
+    data[row, "tendencia_e_sazonalidade"] = data[row, "tendencia_linear"]*porcentagem_da_media_total
+}
+
+```
+
+
+No mesmo gráfico valores observados, tendência linear e tendência linear + sazonalidade:
+```{r}
+plot(data$id,data$vendas,type = "b", col="black")
+lines(data$id,data$tendencia_linear, col="blue")
+lines(data$id,data$tendencia_e_sazonalidade,type = "b", col="red")
+```
+## Demanda histórica
+
+```{r}
+data = read.csv("data/demanda.csv")
+plot(data$I,data$demanda,type="b")
+```
+MCM - Média Central Móvel
+
+```{r}
+data$MCM = NULL
+for (row in 1:nrow(data)) {
+  if(row>1 & row < nrow(data)) {
+    data[row, "MCM"] = mean(data[ (row-1):(row+1) , "demanda"])
+  }
+    
+}
+```
+
+ISIi - Índices Sazonais Individuais
+
+```{r}
+data$ISIi = data$demanda / data$MCM
+```
+
+Isi - Índice Sazonal de Intervalo
+
+e constante em cada intervalo: 0.4353261, 1.6761466
+
+```{r}
+data$Isi = NULL
+
+for (i in 1:3) {
+ 
+  n = 0
+  soma = 0
+  for (row in seq(i,nrow(data),3)) {
+    if(!is.na(data[row,'ISIi'])) {
+      n=n+1
+      soma = soma + data[row,'ISIi']      
+    }
+  }
+  data[i, "Isi"] = soma/n
+  for (row in seq(i,nrow(data),3)) {
+      data[row, "Isi"]= data[i, "Isi"]
+  }
+}
+
+```
+
+
+
+
+Pi - Previsão de demanda
+
+```{r}
+data$Pi = data$MCM * data$Isi
+```
+
+DA - Desvio Absoluto
+```{r}
+data$DA = abs(data$demanda - data$Pi)
+```
+
+```{r}
+plot(data$I,data$demanda,type="b")
+lines(data$I,data$Pi,type = "b", col="red")
+```
+
+```{r}
+model = lm(demanda ~ I,data=data)
+summary(model)
+```
+
+0.3107 + 3.7143 *I 
+
+
+MA - Média do Desvio Absoluto
+
