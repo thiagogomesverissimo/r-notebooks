@@ -55,6 +55,7 @@ plot(data$id,data$vendas,type = "b", col="black")
 lines(data$id,data$tendencia_linear, col="blue")
 lines(data$id,data$tendencia_e_sazonalidade,type = "b", col="red")
 ```
+
 ## Demanda histórica
 
 ```{r}
@@ -81,7 +82,7 @@ data$ISIi = data$demanda / data$MCM
 
 Isi - Índice Sazonal de Intervalo
 
-e constante em cada intervalo: 0.4353261, 1.6761466
+e constante em cada intervalo: 0.4353261, 1.6761466 e 0.8967161
 
 ```{r}
 data$Isi = NULL
@@ -97,15 +98,18 @@ for (i in 1:3) {
     }
   }
   data[i, "Isi"] = soma/n
-  for (row in seq(i,nrow(data),3)) {
-      data[row, "Isi"]= data[i, "Isi"]
-  }
 }
 
 ```
 
-
-
+Copiando 0.4353261, 1.6761466 e 0.8967161 para as demais células:
+```{r}
+for (i in 1:3) {
+  for (row in seq(i,nrow(data),3)) {
+      data[row, "Isi"]= data[i, "Isi"]
+  }
+}
+```
 
 Pi - Previsão de demanda
 
@@ -127,9 +131,70 @@ lines(data$I,data$Pi,type = "b", col="red")
 model = lm(demanda ~ I,data=data)
 summary(model)
 ```
+Previsão de 16 até 21:
 
-0.3107 + 3.7143 *I 
+```{r}
+data[16:21,]$I = 16:21
+data[16:21,]$demanda = 3.7143 + 0.3107*(16:21)
+```
 
+Copiando 0.4353261, 1.6761466 e 0.8967161 para as demais células:
+```{r}
+for (i in 1:3) {
+  for (row in seq(i,nrow(data),3)) {
+      data[row, "Isi"]= data[i, "Isi"]
+  }
+}
+```
 
-MA - Média do Desvio Absoluto
+MCM - Média Central Móvel
 
+```{r}
+data$MCM = NULL
+for (row in 1:nrow(data)) {
+  if(row>1 & row < nrow(data)) {
+    data[row, "MCM"] = mean(data[ (row-1):(row+1) , "demanda"])
+  }
+    
+}
+```
+
+Isi:
+```{r}
+for (i in 1:3) {
+ 
+  n = 0
+  soma = 0
+  for (row in seq(i,nrow(data),3)) {
+    if(!is.na(data[row,'ISIi'])) {
+      n=n+1
+      soma = soma + data[row,'ISIi']      
+    }
+  }
+  data[i, "Isi"] = soma/n
+}
+
+```
+
+Pi - Previsão de demanda
+
+```{r}
+data$Pi = data$MCM * data$Isi
+```
+
+```{r}
+plot(data$I,data$Pi,type = "b", col="red")
+lines(data[1:16,]$I,data[1:16,]$demanda,type="b")
+```
+```{r}
+
+library(fpp2)
+vendas = c(25,35,32,39,37,40)
+vendas = ts(vendas)
+vendas2 = ts(vendas,start=2021, frequency = 12)
+autoplot(vendas2)
+```
+
+paraei em 1:56
+
+#"datasets","forecast","fpp2","tseries","patchwork", "DataCombine", "TTR")
