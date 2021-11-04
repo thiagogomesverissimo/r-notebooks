@@ -186,8 +186,9 @@ data$Pi = data$MCM * data$Isi
 plot(data$I,data$Pi,type = "b", col="red")
 lines(data[1:16,]$I,data[1:16,]$demanda,type="b")
 ```
-```{r}
 
+
+```{r}
 library(fpp2)
 vendas = c(25,35,32,39,37,40)
 vendas = ts(vendas)
@@ -195,6 +196,315 @@ vendas2 = ts(vendas,start=2021, frequency = 12)
 autoplot(vendas2)
 ```
 
-paraei em 1:56
+```{r}
+library(fpp2)
+serie = ts(100:231,start = c(2000,1), end = c(2010,12), frequency = 12)
 
-#"datasets","forecast","fpp2","tseries","patchwork", "DataCombine", "TTR")
+plot.ts(serie)
+```
+
+```{r}
+library(fpp2)
+plot.ts(AirPassengers)
+```
+
+
+```{r}
+# http://robjhyndman.com/tsdldata/misc/kings.dat
+kings = read.csv("data/kings.dat",skip = 3, header=F)
+kings = ts(kings)
+
+# http://robjhyndman.com/tsdldata/data/nybirths.dat
+nybirths = read.csv("data/nybirths.dat", header=F)
+nybirths <- ts(nybirths, frequency=12, start=c(1946,1))
+
+# http://robjhyndman.com/tsdldata/data/fancy.dat
+fancy = read.csv("data/fancy.dat",skip = 3, header=F)
+fancy = ts(fancy, frequency=12, start=c(1987,1))
+```
+
+Avaliando um objeto do tipo time series:
+```{r}
+start(fancy)
+end(fancy)
+plot.ts(fancy)
+```
+Método aditivo: usamos quando temos sazonalidade constante
+Método multiplicativo: usamos quando a sazonalidade for crescente
+
+```{r}
+fancylog = log(fancy)
+plot.ts(fancylog)
+```
+
+Autocorrelação é a correlação da série com ela mesma. 
+Em séries temporais, será a correlação entre a série e uma LAG (valores anteriores)
+
+lag: deslocando a série para frente:
+```{r}
+lag(AirPassengers,-2)
+```
+
+Autocorrelação (a10 é uma dataset dentro do fpp2):
+cada barra é um lag. O tracejado (positivo e negativo) indica a correlação significativa com o próximo ou anterior.
+```{r}
+acf(a10)
+```
+
+Autocorrelação parcial. A terceira barra não tem uma correlação significativa com o a anterior, mas tem uma correlação significativa com o próximo:
+```{r}
+pacf(a10)
+```
+
+Autocorrelação parcial:
+```{r}
+pacf(a10)
+```
+
+Todos gráficos de uma vez:
+```{r}
+ggtsdisplay(a10)
+```
+Ruído - série totalmente aleatória: Característica: média e variância constante, sem tendência e sazonalidade
+
+```{r}
+rb <- ts(rnorm(500))
+autoplot(rb)
+```
+Estacionariedade: Série cujas características não mudam ao longo do tempo
+
+```{r}
+hist(a10)
+```
+
+```{r}
+qqnorm(a10)
+qqline(a10, col = "red")
+```
+```{r}
+plot(USAccDeaths, xlab = 'Anos', ylab = 'Número de Mortes')
+points (USAccDeaths, type = 'o')
+```
+
+Combinando duas séries temporais:
+```{r}
+plot.ts(cbind(USAccDeaths,AirPassengers), main = 'Mortes x Transporte Aéreo', xlab = 'Anos')
+```
+
+somas trimestrais
+```{r}
+plot(aggregate(USAccDeaths, nfrequency = 4, FUN = sum))
+```
+
+médias anuais
+```{r}
+plot(aggregate(USAccDeaths, nfreq = 1, FUN=mean))
+```
+
+Janelas temporais:
+```{r}
+monthplot(USAccDeaths, col.base =2, labels = month.abb)
+```
+
+janela temporal
+```{r}
+janela = window(USAccDeaths, start=c(1973, 5), end = c(1975,7))
+janela
+```
+
+Análise da Autocorrelação (FAC) com defasagem 25:
+```{r}
+acf(USAccDeaths, lag.max = 25)
+```
+
+
+Série: Soma da Tendência + Sazonalidade + Aleatório
+```{r}
+plot(stl(log(USAccDeaths), "periodic"))
+```
+
+Tendência: padrão de crescimento ou decrescimento da série/média móvel centrada, computa variações cíclicas
+Sazonalidade: padrão de repetição em intervalos regulares
+Aleatório: não é tendência, nem sazonalidade, outros aspectos
+
+Modelo Aditivo: Série = Tendência + Sazonalidade + Aleatório
+
+Modelo Multiplicativo: Série = Tendência x Sazonalidade x Aleatório
+
+# DECOMPOSIÇÃO DE SÉRIES NÃO SAZONAIS
+Separação da componente de tendência e componente irregular. 
+Envolve tentar separar a série temporal e estimar o componente de tendência e o componente irregular
+Para estimar é comum usar o método de suaviazação, como o cáculo da média móvel 
+simples da série temporal, neste caso consideramos a média móvel simples de ordem 3:
+
+```{r}
+library(TTR)
+kingsSMA3 <- SMA(kings,n=3)
+plot.ts(kingsSMA3)
+```
+
+Vamos aumentar para 8 pontos de suavização:
+
+```{r}
+kingsSMA8 <- SMA(kings,n=8)
+plot.ts(kingsSMA8)
+```
+Há tendẽncia mas não há sazonalidade
+
+# DECOMPOSIÇÃO DE SÉRIES SAZONAIS
+
+Dados originais, picos no verão e no inverno, variações sazonais e aleatórias parecem ser constante ao longo do texto:
+
+```{r}
+plot.ts(nybirths)
+```
+
+Decomposição:
+```{r}
+nybirths_components <- decompose(nybirths)
+plot(nybirths_components)
+```
+### AJUSTAMENTO SAZONAL
+
+É preciso que a série possa ser descrita como um modelo adicional
+É possível ajustar estimando o componente sazonal e substraindo o componente sazonal da série orignal
+
+```{r}
+nybirths_seasonally_adjusted <- nybirths - nybirths_components$seasonal
+plot(nybirths_seasonally_adjusted)
+```
+
+# Tornar séries normais e estacionárias
+
+Remove a tendênca da série, para ser estacionária
+Série estacionárias: tem média e variância constante
+
+Removendo tendência da série:
+```{r}
+a10.diff <- diff(a10, 1) # diferença uma a uma obeservação, poderia ser 2, 3 etc
+autoplot(a10.diff)
+```
+Para acharmos o núemro ideal para usar em diff, ou seja, qual número para diferenciação sazonal necessário:
+```{r}
+ndiffs(a10)
+```
+
+
+Transformação BoxCox (sazonalidade e distribuição normal)
+
+```{r}
+library(forecast)
+lambda <- BoxCox.lambda(a10)
+a10.bc <- BoxCox(a10, lambda = lambda)
+serie.final <- diff(a10.bc, 1)
+autoplot(serie.final)
+```
+
+Teste de para verificarmos a estacionariedade da série: Dickey-Fuller
+Se p valor < 0.05 indica que a série é estacionária, neste caso é 0.01, então é estacionária:
+
+```{r message=FALSE, warning=FALSE}
+library(aTSA)
+adf.test(serie.final) 
+```
+ou KPSS:
+```{r message=FALSE, warning=FALSE}
+library(aTSA)
+kpss.test(serie.final)
+```
+
+
+número para diferenciação sazonal necessário:
+```{r message=FALSE, warning=FALSE}
+nsdiffs(AirPassengers)
+```
+
+diferenciação sazonal (Differencing): representa subtrair cada ponto de dados na série de seu sucessor
+```{r}
+AirPassengers_seasdiff <- diff(AirPassengers, lag=frequency(AirPassengers), differences=1)
+```
+
+ainda não estacionária:
+```{r}
+plot(AirPassengers_seasdiff, type="l", main="Diferença Sazonal")
+```
+
+Número de diferenças necessárias para tornar a série estacionária:
+```{r}
+ndiffs(AirPassengers_seasdiff) 
+```
+
+aparenta ser estacionária:
+```{r}
+stationaryTS <- diff(AirPassengers_seasdiff, differences= 1)
+plot(stationaryTS, type="l", main="Diferenças e Estacionária")
+```
+
+
+### PREVISÃO COM ALISAMENTO EXPONENCIAL (EXPONENTIAL SMOOTHING)
+
+Suavização Exponencial Simples: modelo aditivo com nível constante e sem sazonalidade.
+A suaviazação ocorre pelo parâmetro alfa entre 0 e 1. Sendo, 0 pouco peso nas observações
+mais recentes ao fazer previsões de valores futuros.
+ 
+A média permanece, quase, constante em aproximadamente em 25, o que indica o uso  de um modelo aditivo. 
+```{r message=FALSE, warning=FALSE}
+rain <- scan("http://robjhyndman.com/tsdldata/hurst/precip1.dat",skip=1) # tem também em data/precip1.dat
+rainseries <- ts(rain,start=c(1813))
+plot.ts(rainseries)
+```
+
+Vamos usar a função HoltWinters() para isso é preciso definir os parâmetros beta e gamma.
+
+```{r}
+library(forecast)
+rainseriesforecasts <- HoltWinters(rainseries, beta=FALSE, gamma=FALSE)
+rainseriesforecasts
+```
+O valor estimado do parâmetro alfa é de 0.024. Como o valor é próximo a zero a previsão
+está baseada em observações recentes e menos recentes. Por default a previsão é feita apenas
+para o mesmo período avaliado na série temporal que está entre 1813 e 1912.
+
+```{r}
+plot(rainseriesforecasts)
+```
+Como medida de previsão calculamos o erro da soma dos quadrados para os erros de previsão dentro
+da amostra. 
+
+```{r}
+rainseriesforecasts$SSE
+```
+
+utilizando o primeiro valor previsto:
+```{r}
+HoltWinters(rainseries, beta=FALSE, gamma=FALSE, l.start=23.56)
+```
+
+# parei na linha 330 e a aula parou em 351
+Previsão 8 anos além da série original:
+```{r}
+library(forecast)
+rainseriesforecasts_previsto <- forecast(rainseriesforecasts, h=8)
+plot(rainseriesforecasts_previsto)
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+ 
