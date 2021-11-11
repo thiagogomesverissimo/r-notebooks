@@ -1,0 +1,15 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+ARIMA:
+
+- p termo autoregressivo
+- d número de diferenciações (alteramos para tornar a série estacionária)
+- q termo da média móvel
+
+```{r}
+plot(cars)
+```
+
