@@ -522,6 +522,147 @@ skirts <- scan("http://robjhyndman.com/tsdldata/roberts/skirts.dat",skip=5)
 skirtsseries <- ts(skirts,start=c(1866))
 plot.ts(skirtsseries)
 ```
- parei em 1:32
- ```{r}
- ```
+O valor do alpha foi de 0.83 e beta 1. 
+Os valores são altos e indicam a estimativa do valor atual do nível quando a 
+inclinação do componente de tendência se baseiam principalmente em observações
+recentes da série.
+
+```{r}
+skirtsseriesforecasts <- HoltWinters(skirtsseries, gamma=FALSE)
+skirtsseriesforecasts
+```
+
+```{r}
+skirtsseriesforecasts$SSE
+```
+
+
+```{r}
+plot(skirtsseriesforecasts)
+```
+
+
+Prevendo 19 pontos a mais que a série temporal
+
+```{r}
+skirts_previsao = forecast::forecast(skirtsseriesforecasts, h=19)
+plot(skirts_previsao)
+```
+
+Vamos avalair se o modelo preditivo pode ser melhorado ao verificar os erros de previsão na amostra
+mostram autocorrelações diferentes de zero nas defasagens de 1-20. 
+```{r}
+acf(skirts_previsao$residuals, lag.max=20, na.action = na.pass)
+```
+
+somente o quinto valor tem valor significativo, ou seja, somente o quinto tem correlação com a dado anterior
+O correlograma mostrou que a autocorrelação da amostra para os erros de previsão dentro da amostra no 
+defasamento 5 excede os limites de significância. Porém, é esperado que uma em cada 20 das autocorrelações 
+para os primeiros vinte atraso exceda o limite de significância de 95%. 
+
+
+O Teste de Ljung-Box mostra que há pouca evidência de autocorrelações nos erros de previsão.
+O teste retornou um p valor de 0.47, indicando que há pouca evidência de autocorrelações diferentes de zero 
+nos erros de previsão dentro da amostra nas defasagens 1-20.
+```{r}
+Box.test(skirts_previsao$residuals, lag=20, type="Ljung-Box")
+```
+
+Os erros de previsão têm uma variância quase constante ao longo do tempo:
+```{r}
+plot.ts(skirts_previsao$residuals) 
+```
+
+
+
+O histograma de erros de previsão mostra que é plausível que os erros de previsão sejam normalmente distribuídos com méda zero e variância constante:
+```{r}
+plotForecastErrors(skirts_previsao$residuals)
+```
+
+é possível concluir que a suavização exponencial de Holt fornece um modelo preditivo adequado para os parâmetros avaliados, e que provavelmente não pode ser melhorado. 
+Além disso, significa que as suposições nas quais os intervalos de predições de 80% e 95% são validas.
+
+## Suavização Exponencial Holt-Winters
+
+Caso tenha uma série que pode ser descrita por meio de modelos aditivos, tendência crescente
+ou decrescente e sazonalidade, o uso da suavização exponencial de Holt-Winders é indicada 
+para previsões de curto prazo.
+
+Estima o nível, inclinação e componente sazonal no ponto de tempo atual. A suavização é
+controlada por três parâmetros: alfa, beta e gama para estimar o nível, inclinação e o 
+componente de tendência e sazonal a partir do ponto atual. Os parâmetros variam entre 0 e 1.
+Valores próximos a 0 significam que é colocado relativamente pouco peso nas observações mais 
+recentes ao fazer as previsões.
+
+```{r}
+fancy = read.csv("data/fancy.dat",skip = 3, header=F)
+fancyts <- ts(fancy, frequency=12, start=c(1987,1))
+fancyts_log <- log(fancyts)
+fancy_forecasts <- HoltWinters(fancyts_log)
+plot(fancy_forecasts)
+```
+
+Os valores estimados de alfa, beta e gama são 0.41, 0.00 e 0.95. 
+- O alfa é relativamente baixo indicando que a estimativa do nível no momento atual 
+é baseada em observações no passado mais distante. 
+- O valor de beta indica que a estimativa da inclinação b do componente de tendência não
+é atualizado ao longo da série temporal e, em vez disso, é definida igual ao valor inicial. Assim,
+o nível muda bastante ao longo da série temporal, mas a inclinação do componente de tendência
+permanece praticamente a mesma. 
+- o valor gama é alto, indicando que a estimativa do componente sazonal no momento atual 
+é baseada apenas em observações recentes.
+
+Previsão para períodos que não estão na base, de 1994 a 1998 (48 meses):
+
+```{r}
+fancy_previsto <- forecast::forecast(fancy_forecasts, h=48)
+plot(fancy_previsto)
+```
+Para avaliar se o modelo melhora verificamos se os erros de previsão na amostra mostram autocorrelações diferentes de zero nas defasagens 1-20, vamos realizar o correlograma e o teste de Ljung e Box:
+
+```{r}
+acf(fancy_previsto$residuals, lag.max=20, na.action = na.pass)
+```
+
+```{r}
+Box.test(fancy_previsto$residuals, lag=20, type="Ljung-Box")
+```
+
+## método da média
+
+Previsão para os próximos 12 meses:
+```{r message=FALSE, warning=FALSE}
+library(fpp2)
+prev.media = meanf(a10,h=12)
+autoplot(prev.media)
+```
+## método da naive
+
+```{r}
+library(fpp2)
+prev.naive = naive(a10,h=12)
+autoplot(prev.naive)
+```
+
+## método naive sazonal
+
+```{r}
+prev.snaive = snaive(a10,h=12)
+autoplot(prev.snaive)
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```
+
+```{r}
+```

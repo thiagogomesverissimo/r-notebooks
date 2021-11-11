@@ -3,16 +3,38 @@ title: "R Notebook"
 output: html_notebook
 ---
 
+Para rodar o arima a série deve ser estacionária. Podemos fazer log ou box-cox
+para transformar a série em estacionária.
+
+
+Os métodos de suavização exponencial são úteis para fazer previsões e não fazem 
+suposições sobre as correlações entre os valores sucessivos da série temporal. 
+
+No entanto, se o objetivo seria fazer intervalos de previsão para previsões 
+feitas usando métodos de suavização exponencial, os intervalos de previsão 
+requerem que os erros de previsão não sejam correlacionados e sejam normalmente 
+distribuídos com média zero e variância constante.
+
+Embora os métodos de suavização exponencial não façam suposições sobre correlações 
+entre valores sucessivos da série temporal, em alguns casos você pode fazer um 
+modelo preditivo melhor levando em consideração as correlações nos dados. 
+Modelos de Média Móvel Integrada Autoregressiva (ARIMA) incluem um modelo 
+estatístico explícito para o componente irregular de uma série temporal, que 
+permite autocorrelações diferentes de zero no componente irregular.
+
+Modelo autorregresivo, integrado e de média móvel:
+
+
 ARIMA (p,d,q):
 
-- p (AR) termo autoregressivo
-- d (I) número de diferenciações (alteramos para tornar a série estacionária)
-- q (MA) termo da média móvel
+- p (AR) termo autoregressivo,  valores anteriores ou lags
+- d (I) número de diferenciações (alteramos para tornar a série estacionária) número necessário para prever
+- q (MA) termo da média móvel, erros anteriores do modelo
 
 SARIMA (p,d,q,m) - Arima com sazonalidade
 
 
 ```{r}
-plot(cars)
+
 ```
 
