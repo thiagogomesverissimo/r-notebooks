@@ -454,7 +454,7 @@ rainseries <- ts(rain,start=c(1813))
 plot.ts(rainseries)
 ```
 
-Vamos usar a função HoltWinters() para isso é preciso definir os parâmetros beta e gamma.
+Vamos usar a função HoltWinters (modelo aditivo) para isso é preciso definir os parâmetros beta e gamma.
 
 ```{r}
 library(forecast)
@@ -468,43 +468,60 @@ para o mesmo período avaliado na série temporal que está entre 1813 e 1912.
 ```{r}
 plot(rainseriesforecasts)
 ```
-Como medida de previsão calculamos o erro da soma dos quadrados para os erros de previsão dentro
-da amostra. 
+Como medida de previsão calculamos o erro da soma dos quadrados para os erros (residuos) de previsão dentro
+da amostra . 
 
 ```{r}
 rainseriesforecasts$SSE
 ```
-
+ 
 utilizando o primeiro valor previsto:
 ```{r}
 HoltWinters(rainseries, beta=FALSE, gamma=FALSE, l.start=23.56)
 ```
 
-# parei na linha 330 e a aula parou em 351
 Previsão 8 anos além da série original:
+
 ```{r}
 library(forecast)
-rainseriesforecasts_previsto <- forecast(rainseriesforecasts, h=8)
+rainseriesforecasts_previsto = forecast::forecast(rainseriesforecasts, h=8)
 plot(rainseriesforecasts_previsto)
 ```
+Correlograma :
 
 ```{r}
-
+acf(rainseriesforecasts_previsto$residuals, lag.max = 20, na.action = na.pass)
 ```
+
+Significância por meio do teste Ljung-Box. 
+p-value é 0.6268, ou seja, temos pouca evidência de autocorrelação diferentes de zero nos erros de previsão dentro da amostra:
 
 ```{r}
-
+Box.test(rainseriesforecasts_previsto$residuals, lag=20, type="Ljung-Box")
 ```
 
+Verificando se os erros de previsão são normalmente distribuídos, ou seja, média e variância constante.
 ```{r}
-
+plot.ts(rainseriesforecasts_previsto$residuals)
 ```
-
+plotando o histograma dos erros de previsão
 ```{r}
-
+source('vendor/plotForecastErrors.R')
+plotForecastErrors(rainseriesforecasts_previsto$residuals)
 ```
 
-```{r}
+Suavização Exponencial Holt's é usado quando é possível utilizar um modelo aditivo
+com acréscimo ou decréscimo na tendência e sazonalidade. O método estima o nível e a 
+inclinação no ponto de tempo atual e é controlada por dois parâmetros alfa (ponto atual)
+e beta para inclinação do componente da tendência no ponto do tempo atual.
+Alfa e beta terão valores entre 0 e 1, sendo que próximo a zero temos pouco 
+peso nas previsões mais recentes.
 
+```{r message=FALSE, warning=FALSE}
+skirts <- scan("http://robjhyndman.com/tsdldata/roberts/skirts.dat",skip=5)
+skirtsseries <- ts(skirts,start=c(1866))
+plot.ts(skirtsseries)
 ```
- 
+ parei em 1:32
+ ```{r}
+ ```
