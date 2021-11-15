@@ -630,6 +630,7 @@ Box.test(fancy_previsto$residuals, lag=20, type="Ljung-Box")
 ```
 
 ## método da média
+valores previstos serão a média da série
 
 Previsão para os próximos 12 meses:
 ```{r message=FALSE, warning=FALSE}
@@ -637,7 +638,9 @@ library(fpp2)
 prev.media = meanf(a10,h=12)
 autoplot(prev.media)
 ```
+
 ## método da naive
+os valores previstos serão o mesmo que o último valor registrado
 
 ```{r}
 library(fpp2)
@@ -646,6 +649,7 @@ autoplot(prev.naive)
 ```
 
 ## método naive sazonal
+os valores previstos serão o último valor registrado no mesmo período sazonal anterior
 
 ```{r}
 prev.snaive = snaive(a10,h=12)

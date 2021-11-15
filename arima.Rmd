@@ -6,7 +6,6 @@ output: html_notebook
 Para rodar o arima a série deve ser estacionária. Podemos fazer log ou box-cox
 para transformar a série em estacionária.
 
-
 Os métodos de suavização exponencial são úteis para fazer previsões e não fazem 
 suposições sobre as correlações entre os valores sucessivos da série temporal. 
 
@@ -33,6 +32,249 @@ ARIMA (p,d,q):
 
 SARIMA (p,d,q,m) - Arima com sazonalidade
 
+série temporal do diâmetro anual de saias femininas na bainha, de 1866 a 1911, não é estacionária em média, 
+pois o nível muda muito hora extra:
+```{r message=FALSE, warning=FALSE}
+skirts <- scan("http://robjhyndman.com/tsdldata/roberts/skirts.dat",skip=5)
+skirtsseries <- ts(skirts,start=c(1866))
+plot.ts(skirtsseries)
+```
+Verificação da estacionariedade com diff 1:
+```{r}
+skirtsseriesdiff1 <- diff(skirtsseries, differences=1) 
+plot.ts(skirtsseriesdiff1)
+```
+Com lag 2 a série temporal das segundas diferenças parece ser estacionária em média e variância, pois 
+o nível da série permanece aproximadamente constante ao longo do tempo, e a variância da série 
+parece aproximadamente constante ao longo do tempo. Assim, parece ser preciso 
+diferenciar a série temporal duas vezes para obter uma série estacionária.
+
+Se for preciso diferenciar os dados de série temporal originais "d" vezes para obter uma série 
+temporal estacionária, isso significa que o modelo ARIMA (p, d, q) é o indicado. Sendo 
+"d" a ordem de diferenciação usada. Por exemplo, para a série acima 
+tivemos que diferenciar a série temporal duas vezes e, portanto, a ordem de diferenciação (d) seria 2. 
+Isso significa que poderia usar um ARIMA (p, 2, q) modelo para sua série temporal. 
+A próxima etapa é descobrir os valores de p e q para o modelo ARIMA:
+
+```{r}
+skirtsseriesdiff2 <- diff(skirtsseries, differences=2)
+plot.ts(skirtsseriesdiff2)
+```
+Outra base:
+```{r}
+kings = read.csv("data/kings.dat",skip = 3, header=F)
+kings = ts(kings)
+plot.ts(kings)
+```
+
+A série temporal das primeiras diferenças parece ser estacionária em média e variância e, portanto, 
+um modelo ARIMA (p, 1, q) é provavelmente apropriado para a série temporal kings. A partir da 
+série temporal das primeiras diferenças, removemos o componente de tendência da série temporal
+e ficamos com um componente irregular. O próximo passo será avaliar se existem correlações entre 
+termos sucessivos desse componente irregular; em caso afirmativo, isso poderia ajudar a fazer 
+um modelo preditivo para a série kings.
+
+```{r}
+kingtimeseriesdiff1 <- diff(kings, differences=1)
+plot.ts(kingtimeseriesdiff1)
+```
+
+Se a série temporal for estacionária, ou se transformou diferenciando "d" vezes, 
+a próxima etapa é selecionar o modelo ARIMA apropriado, o que significa encontrar os valores 
+mais apropriados de p e q para o modelo ARIMA (p, d, q). Para fazer isso, é preciso examinar o 
+correlograma e o correlograma parcial da série temporal estacionária.
+
+plotando um correlograma:
+
+```{r}
+acf(kingtimeseriesdiff1, lag.max=20)
+```
+Valores das autocorrelações:
+
+```{r}
+acf(kingtimeseriesdiff1, lag.max=20, plot=FALSE)
+```
+
+Autocorrelação parcial:
+```{r}
+pacf(kingtimeseriesdiff1, lag.max=20)
+```
+
+valores das Autocorrelação parcial:
+```{r}
+pacf(kingtimeseriesdiff1, lag.max=20, plot = FALSE)
+```
+
+O correlograma parcial demonstra que as autocorrelações parciais nos atrasos 1, 2 e 3 excedem os limites
+de significância, são negativas e estão diminuindo lentamente em magnitude com o aumento do atraso 
+(atraso 1: -0,360, atraso 2: -0,335, atraso 3: -0,321 ). As autocorrelações parciais diminuem para 
+zero após o lag 3. 
+
+Uma vez que o correlograma é zero após o atraso 1, e o correlograma parcial cai para zero após o 
+atraso 3, os modelos ARMA (média móvel autorregressiva) são possíveis para a série temporal das 
+primeiras diferenças:
+  
+- Modelo ARMA (3,0), ou seja, ordem p = 3, uma vez que o autocorrelograma parcial é zero após o atraso 3,
+e o autocorrelograma cai para zero (embora talvez de forma abrupta demais para que este modelo seja 
+apropriado)
+
+- Modelo ARMA (0,1), ou seja, um modelo de média móvel de ordem q = 1, uma vez que o autocorrelograma é 
+zero após o lag 1 e o autocorrelograma parcial cai para zero.
+
+- Modelo ARMA (p, q), ou seja, um modelo misto com p e q maior que 0, uma vez que o autocorrelograma e o 
+correlograma parcial caem para zero (embora o correlograma provavelmente caia para zero muito 
+abruptamente para este modelo ser apropriado ). Assim, usaremos o princípio da parcimônia para decidir 
+qual modelo é o melhor: isto é, supomos que o modelo com o menor número de parâmetros é o melhor. 
+O modelo ARMA (3,0) tem 3 parâmetros, o modelo ARMA (0,1) tem 1 parâmetro e o modelo ARMA (p, q) tem 
+pelo menos 2 parâmetros. Portanto, o modelo ARMA (0,1) é considerado o melhor modelo.
+
+- Modelo ARMA (0,1) é um modelo de média móvel de ordem 1, ou modelo MA (1). Este modelo pode ser 
+escrito como: X_t - mu = Z_t - (theta * Z_t-1), onde X_t é a série temporal estacionária que estamos 
+estudando (a primeira série diferenciada da base kings), mu é a média de série temporal X_t, Z_t é 
+ruído com média zero e variância constante, e theta é um parâmetro que pode ser estimado.
+
+- Modelo MA (média móvel) é geralmente usado para modelar uma série de tempo que mostra dependências de 
+curto prazo entre observações sucessivas. Intuitivamente, faz sentido que um modelo MA possa ser 
+usado para descrever o componente irregular na série temporal da série kings, já que podemos esperar 
+que a idade de morte de um rei inglês em particular tenha algum efeito sobre as idades na morte do 
+próximo rei ou dois, mas não muito efeito nas idades na morte dos reis que reinam muito mais tempo 
+depois disso.
+
+Uma vez que um modelo ARMA (0,1) (com p = 0, q = 1) é considerado o melhor modelo candidato para a 
+série temporal das primeiras diferenças das idades na morte de reis ingleses, então a série temporal 
+original do idades de morte podem ser modeladas usando um modelo ARIMA (0,1,1) 
+(com p = 0, d = 1, q = 1, onde d é a ordem de diferenciação necessária).
+
+## vulcões
+
+Visualmente as flutuações aleatórias na série temporal são aproximadamente constantes em 
+tamanho ao longo do tempo, portanto, um modelo aditivo é provavelmente apropriado para descrever 
+essa série temporal. Além disso, a série temporal parece ser estacionária em média e variância, 
+pois seu nível e variância parecem ser aproximadamente constantes ao longo do tempo. Portanto, 
+não precisamos diferenciar esta série para ajustar um modelo ARIMA, mas podemos ajustar um modelo 
+ARIMA à série original (a ordem de diferenciação necessária, d, é zero aqui).
+
+```{r}
+volcanodust <- scan("http://robjhyndman.com/tsdldata/annual/dvi.dat", skip=1)
+volcanodustseries <- ts(volcanodust,start=c(1500))
+plot.ts(volcanodustseries)
+```
+Correlograma e correlograma parcial para defasagens 1-20 para investigar qual modelo ARIMA usar:
+
+```{r}
+acf(volcanodustseries, lag.max=20) 
+```
+
+```{r}
+pacf(volcanodustseries, lag.max=20) 
+```
+
+As autocorrelações para as defasagens 1, 2 e 3 excedem os limites de significância, e que 
+as autocorrelações diminuem para zero após o atraso 3. As autocorrelações para as defasagens 
+1, 2, 3 são positivas e diminuem em magnitude com o aumento lag (lag 1: 0,666, lag 2: 0,374, 
+lag 3: 0,162).
+
+A autocorrelação para defasagens 19 e 20 excede os limites de significância também, mas é provável 
+que seja devido ao acaso, uma vez que apenas excedem os limites de significância (especialmente 
+para defasagens 19), as autocorrelações para defasagens 4-18 não excedem os limites de significância, 
+e esperamos que 1 em cada 20 defasagens excedesse os limites de significância de 95% apenas 
+pelo acaso.
+
+A autocorrelação parcial no lag 1 é positiva e excede os limites de significância (0,666), enquanto a 
+autocorrelação parcial no lag 2 é negativa e também excede os limites de significância (-0,126). 
+As autocorrelações parciais diminuem para zero após o lag 2. Uma vez que o correlograma cai para zero 
+após o desfasamento 3, e o correlograma parcial é zero após o desfasamento 2, os seguintes modelos ARMA 
+são possíveis para a série temporal:
+  
+- Modelo ARMA (2,0), uma vez que o autocorrelograma parcial é zero após o lag 2, e o correlograma cai 
+para zero após o lag 3, e o correlograma parcial é zero após o lag 2
+
+- Modelo ARMA (0,3), uma vez que o autocorrelograma é zero após o atraso 3, e o correlograma parcial 
+cai para zero (embora talvez de forma abrupta demais para que este modelo seja apropriado).
+
+- Modelo misto ARMA (p, q), uma vez que o correlograma e o correlograma parcial diminuem para zero 
+(embora o correlograma parcial talvez diminua abruptamente para este modelo ser apropriado).
+
+- Modelo ARMA (2,0) tem 2 parâmetros, o modelo ARMA (0,3) tem 3 parâmetros e o modelo ARMA (p, q) 
+tem pelo menos 2 parâmetros. Portanto, usando o princípio da parcimônia, o modelo ARMA (2,0) e o 
+
+- modelo ARMA (p, q) são modelos candidatos igualmente bons.
+
+- Modelo ARMA (2,0) é um modelo autoregressivo de ordem 2, ou modelo AR (2). Este modelo pode ser 
+escrito como: X_t - mu = (Beta1 * (X_t-1 - mu)) + (Beta2 * (Xt-2 - mu)) + Z_t, onde X_t é a série 
+temporal estacionária (série volcanodust), mu é a média das séries temporais X_t, Beta1 e Beta2 
+são parâmetros a serem estimados e Z_t é o ruído com média zero e variância constante.
+
+- Modelo AR (autoregressivo) é geralmente usado para modelar uma série de tempo que mostra dependências 
+de longo prazo entre observações sucessivas. Intuitivamente, faz sentido que um modelo AR possa 
+ser usado para descrever a série temporal da base, já que esperaríamos que a poeira vulcânica e os 
+respectivos níveis em um ano afetassem aqueles em anos muito posteriores, uma vez que a poeira 
+são improváveis desaparecer rapidamente.
+
+- Se o modelo ARMA (2,0) (com p = 2, q = 0) for usado para modelar a série temporal significaria que 
+um modelo ARIMA (2,0,0) pode ser usado ( com p = 2, d = 0, q = 0, onde d é a ordem de diferenciação
+necessária). Da mesma forma, se um modelo ARMA (p, q) misto é usado, onde p e q são ambos maiores que 
+zero, então um modelo ARIMA (p, 0, q) pode ser usado.
+
+```{r}
+volcanodustseriesarima <- arima(volcanodustseries, order=c(2,0,0))
+volcanodustseriesarima
+```
+
+previsão:
+```{r}
+volcanodustseriesforecasts <- forecast::forecast(volcanodustseriesarima, h=31)
+plot(volcanodustseriesforecasts)
+```
+
+```{r}
+acf(volcanodustseriesforecasts$residuals, lag.max=20)
+```
+
+
+```{r}
+Box.test(volcanodustseriesforecasts$residuals, lag=20, type="Ljung-Box")
+```
+
+gráfico de tempos de erro de previsão:
+```{r}
+plot.ts(volcanodustseriesforecasts$residuals) 
+```
+
+fit an ARIMA(0,1,1) model
+```{r}
+kingstimeseriesarima <- arima(kings, order=c(0,1,1))
+kingstimeseriesarima
+```
+
+
+```{r}
+kingstimeseriesforecasts <- forecast::forecast(kingstimeseriesarima, h=5)
+plot(kingstimeseriesforecasts)
+```
+Passo a passo, Box e Jenkis (1976)
+
+- 1: Plotar a série e examinar;
+- 2: Diferenciar a série até ficar estacionária e fazer transformações, se necessário;
+- 3: Usar séries diferenciadas para definir p e q;
+- 4: Implementar o Arima nos dados originais;
+- 5: Checar se é um bom modelo;
+- 6: Usar o modelo para fazer previsões.
+
+```{r}
+library(fpp2)
+autoplot(a10)
+```
+
+
+```{r}
+dec <- decompose(a10)
+autoplot(dec)
+```
+
+```{r}
+
+```
 
 ```{r}
 
