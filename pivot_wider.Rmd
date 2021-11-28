@@ -1,0 +1,37 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(readxl)
+data = read_xlsx("data/WDI.xlsx")
+```
+
+Renomenado colunas:
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+data = data |> rename(pais=1,
+                      cod_pais=2,
+                      serie=3,
+                      cod_serie=4,
+                      ano_2019=5,
+                      topico=6)
+```
+
+Converntendo .. para NA na coluna ano_2019:
+
+```{r}
+data = data |> mutate(ano_2019 = na_if(ano_2019,".."))
+data$ano_2019 = as.numeric(data$ano_2019)
+```
+
+Vamos supor que o objetivo seja analisar apenas informações do tópico "saúde":
+
+```{r}
+data_saude = data |> filter(str_detect(topico,"^Health"))
+```
+
+Mudando o formato da tabela para wide (observações em linha e variáveis em colunas):
