@@ -1,0 +1,224 @@
+---
+title: "Pipe"
+output: html_notebook
+---
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+data = read.csv("data/saeb.csv")
+```
+
+Criando uma nova coluna chamada rede_numerica com Municipal sendo 0, Estadual sendo 1 e Federal sendo 2. Usaremos a função recode: 
+```{r}
+data = data |> mutate(rede_numerica = recode(rede,
+    "Municipal"=0, "Estadual"=1, "Federal" =2
+))
+```
+
+Alterando a coluna rede para ser numérica com Municipal sendo 0, Estadual sendo 1 e Federal sendo 2. Usaremos a função replace: 
+```{r}
+data = data |> mutate(rede = replace(rede, rede == "Municipal",0),
+                      rede = replace(rede, rede == "Estadual",1),
+                      rede = replace(rede, rede == "Federal",2))
+```
+
+Criando dummies com recorde:
+
+```{r}
+data = read.csv("data/saeb.csv")
+
+data = data |> mutate(Municipal = recode(rede,"Municipal"=1, "Estadual"=0, "Federal" =0),
+                      Estadual = recode(rede,"Municipal"=0, "Estadual"=1, "Federal" =0),
+                      Federal = recode(rede,"Municipal"=0, "Estadual"=0, "Federal" =1))
+
+```
+
+Função cut para criação de grupos:
+
+```{r}
+data = read.csv("data/WHO_COVID.csv")
+data = data |> rename(nome = 1,
+                      regiao = 2,
+                      casos_total = 3,
+                      casos_relativo = 4,
+                      casos_semana = 5,
+                      casos_semana_relativo = 6,
+                      casos_dia = 7,
+                      mortes_total = 8,
+                      mortes_relativo = 9,
+                      mortes_semana = 10,
+                      mortes_semana_relativo = 11,
+                      mortes_dia = 12,
+                      tipo_transmissao = 13)
+
+intervalos = c(-Inf,100,1000,Inf)
+grupos = c("Não preocupante","Tá foda","Fudeu")
+data = data |> mutate(grupos = cut(casos_relativo, intervalos, grupos))
+                                                   
+```
+
+Mantendo apenas algumas colunas:
+
+```{r}
+data_2colunas = data |> transmute(nome,grupos)
+```
+
+selecionando todas colunas come exceção regiao:
+```{r}
+data_sem_regiao = data |> select(everything(),-regiao)
+```
+
+Somente colunas nome e regiao:
+```{r}
+data_nome_e_regiao = data |> select(nome,regiao)
+```
+
+Removendo colunas que começam com c:
+```{r}
+data_c = data |> select(starts_with("c"))
+```
+
+Somente mudando a ordem com grupos, começam com c e as demais:
+```{r}
+data_ordem = data |> select(grupos, starts_with("c"),everything())
+```
+
+Somente mudando a ordem com grupos, começam com c e as demais com relocate:
+```{r}
+data_ordem_relocate = data |> relocate(grupos, starts_with("c"),everything())
+```
+
+Extraindo uma coluna como vetor:
+```{r}
+nomes = data |> pull(var=nome)
+```
+
+Usando glimpse:
+```{r}
+data = read.csv("data/ChampionsLeague.csv")
+glimpse(data)
+```
+
+Usando case_when para criar uma coluna chamada vencedor:
+
+```{r}
+data = data |> mutate(vencedor = case_when(
+  c(data$team_home_score - data$team_away_score) == 0 ~ "empate",
+  c(data$team_home_score - data$team_away_score) > 0 ~ "mandante",
+  c(data$team_home_score - data$team_away_score) < 0 ~ "visitante"
+)) |>
+relocate(vencedor,everything())
+
+table(data$vencedor)
+```
+
+Estatística descritiva:
+```{r}
+data |> summarise(quantidades=n(),mediana=median(team_home_score), "média"=mean(team_home_score),"Desvio Padrão"=sd(team_home_score))
+```
+
+Estatística por Agrupamento ordenando pela quantidade de forma descrencente:
+
+```{r}
+agrupada = data |> group_by(stage)
+
+agrupada |> summarise(quantidades=n(),mediana=median(team_home_score), "média"=mean(team_home_score),"Desvio Padrão"=sd(team_home_score)) |>
+arrange(desc(quantidades))
+```
+
+
+```{r}
+data |> group_by(stage) |> summarise(quantidades=n(),mediana=median(team_home_score), "média"=mean(team_home_score),"Desvio Padrão"=sd(team_home_score)) |> ungroup() |> droplevels()
+```
+
+função bind_rows:
+
+```{r}
+filmes=read.csv("data/filmes.csv")
+series=read.csv("data/series.csv")
+
+completo = filmes |> select(everything(),-(Directors:Runtime)) |> bind_rows(series) |> select(!X)
+```
+
+Extraindo número de coluna que está como string:
+```{r}
+completo = completo |> mutate(nota_imdb=as.numeric(str_sub(completo$IMDb,1,3)))
+```
+
+Função filter:
+```{r}
+tops = completo |> filter(nota_imdb>9.5)
+```
+
+```{r}
+completo |> slice(5:10)
+```
+
+
+```{r}
+completo |> slice_head(n=5)
+```
+
+```{r}
+completo |> slice_min(order_by=nota_imdb, n = 5)
+```
+Usando join:
+
+```{r}
+library(readxl)
+estudantes = readxl::read_xls("data/estudantes.xls")
+estudantes_genero = readxl::read_xls("data/estudantes_genero.xls")
+
+left_join = left_join(estudantes,estudantes_genero,by="Estudante")
+# mesmo efeito usando pipe: estudantes |> left_join(estudantes_genero,by="Estudante")
+```
+
+right_join
+
+```{r}
+right_join = right_join(estudantes,estudantes_genero,by="Estudante")
+```
+
+
+inner_join
+
+```{r}
+inner_join = inner_join(estudantes,estudantes_genero,by="Estudante")
+```
+
+full_join
+
+```{r}
+full_join = full_join(estudantes,estudantes_genero,by="Estudante")
+```
+
+semi_join: observações que constam em x e em y. mas só mantém as colunas da tabela da esquerda
+```{r}
+semi_join = semi_join(estudantes,estudantes_genero,by="Estudante")
+```
+
+anti_join: observações que constam em x e não em y. mas só mantém as colunas da tabela da esquerda
+```{r}
+anti_join = anti_join(estudantes,estudantes_genero,by="Estudante")
+```
+
+Criando dados fakes:
+```{r}
+data1 = tibble("id"=c("obs1","obs2","obs3","obs4"),"col1"=c(2,5,7,3),"col2"=c(1,23,0,1))
+data2 = tibble("id"=c("obs1","obs2","obs3","obs4"),"col3"=4:7)
+data3 = tibble("id"=c("obs5","obs6","obs7","obs8"),"col4"=4:7)
+```
+
+colando colunas:
+
+```{r}
+bind_cols(data1,data2)
+```
+
+colando linhas:
+
+```{r}
+bind_rows(data1,data2)
+```
+
+

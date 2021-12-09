@@ -30,6 +30,8 @@ ARIMA (p,d,q):
 - d (I) número de diferenciações (alteramos para tornar a série estacionária) número necessário para prever
 - q (MA) termo da média móvel, erros anteriores do modelo
 
+o método auto.arima encontra automaticamente p, d, q.
+
 SARIMA (p,d,q,m) - Arima com sazonalidade
 
 série temporal do diâmetro anual de saias femininas na bainha, de 1866 a 1911, não é estacionária em média, 
@@ -272,11 +274,936 @@ dec <- decompose(a10)
 autoplot(dec)
 ```
 
+Exemplo de ciclos não sazonais:
 ```{r}
+library(fpp2)
+autoplot(lynx) + xlab("Year") + ylab("Number of lynx trapped")
+```
+Exemplo de sazonalidade:
+```{r}
+autoplot(hsales) + xlab("Year") + ylab("Monthly housing sales (millions)")
+```
 
+Estacionariedade: propriedades estatísticas não mudam ao longo do tempo. Exemplo: média, variância, autocorrelação
+
+
+Autocorrelação (ADF) é um cálculo da correlação das observações da série temporal 
+com valores da mesma série, mas em tempos anteriores. Os períodos anteriores 
+são chamados de lags.
+
+Autocorrelação parcial (PACF) resume a relação entre uma observação em uma série 
+de tempo com observações em etapas de tempo anteriores, mas com as relações de
+observações intermediárias removidas.
+
+Correlograma: no contexto de séries temporais é uma diagrama de autocorrelações da amostra
+
+
+Teste Ljung–Box: determina se algum grupo de autocorrelações de uma série temporal é diferente de zero. Em outras palavras, avaliar se as séries de observações ao longo do tempo são aleatória e independente.
+
+Expectativa que o p valor não seja significativo para não rejeitarmos a 
+hipótese nula e concluir que os resíduos são conjuntamente não correlacionados.
+
+
+Ruído: tem uma média constante, uma variância constante e não há estrutura de autocorrelação
+
+```{r}
+set.seed(14)
+ruido <- ts(rnorm(1000))
+plot(ruido)
+```
+
+
+Teste de Dickey-Fuller: avaliação estacionariedade da série. Quanto mais negativo for o valor do Teste de Dickey-Fuller menor o p valor. neste caso p.value = 0.01. 
+
+Como p-valor é menor 0.05 rejetamos a hipótese nula:
+
+Hipótese Nula: A série não é estacionária
+Hipótese Alternativa: A série é estacionária
+
+```{r message=FALSE, warning=FALSE}
+library(aTSA)
+adf.test(ruido)
+```
+
+Exemplo de série com sazonalidade e tendência:
+```{r message=FALSE, warning=FALSE}
+library(TSA)
+data(beersales)
+plot(beersales)
+```
+
+A série é estacionária:
+```{r message=FALSE, warning=FALSE}
+library(TSA)
+data(beersales)
+tseries::adf.test(beersales)
+```
+
+
+Porém, se mudamos o LAG ela deixa de ser estacionária, pois p-value = 0.6501 fica maior que 0.05:
+```{r message=FALSE, warning=FALSE}
+library(TSA)
+data(beersales)
+tseries::adf.test(beersales, k=12)
+```
+
+
+Outra série:
+```{r message=FALSE, warning=FALSE}
+library(TSA)
+data(airpass)
+plot(airpass)
+```
+
+Com k=3 a série não é estacionária:
+```{r message=FALSE, warning=FALSE}
+library(TSA)
+data(airpass)
+tseries::adf.test(airpass,k=12)
+```
+
+### Suavização exponencial
+
+Ações do google:
+```{r}
+library(fpp2)
+goog.treino = window(fpp2::goog,end=900)
+goog.teste = window(fpp2::goog,start=901)
+```
+
+Aplicando o SES na base com dados do Google
+
+```{r}
+ses.goog <- ses(goog.treino, alpha = .2, h = 100)
+autoplot(ses.goog)
+```
+
+Removendo a tendência
+```{r}
+goog.diff <- diff(goog.treino)
+autoplot(goog.diff)
+```
+
+
+Reaplicando o SES com os dados filtrados
+```{r}
+ses.goog.diff <- ses(goog.diff,alpha = .2,h = 100)
+autoplot(ses.goog.diff)
+```
+Comparação com os dados de teste. O RMSE foi 8.141450:
+```{r}
+goog.diff.test <- diff(goog.teste)
+accuracy(ses.goog.diff, goog.diff.test)
+```
+
+
+Procurando o melhor alpha:
+```{r}
+alpha <- seq(.01, .99, by = .01)
+RMSE <- NA
+for(i in seq_along(alpha)) {
+  fit <- ses(goog.diff, alpha = alpha[i],
+             h = 100)
+  RMSE[i] <- accuracy(fit, 
+                      goog.diff.test)[2,2]
+}
+min(RMSE)
+```
+
+
+Alpha correspondente ao menor RMSE:
+```{r}
+alpha.fit <- data.frame(alpha, RMSE)
+alpha.min <- filter(alpha.fit,RMSE == min(RMSE))
+
+alpha.min[!is.na(alpha.min)]
+```
+
+
+Plotando o RMSE vs Alpha
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+ggplot(alpha.fit, aes(alpha, RMSE)) +
+  geom_line() +
+  geom_point(data = alpha.min,
+             aes(alpha, RMSE), 
+             size = 2, color = "red")
+```
+
+
+Agora vamos reajustar a previsão SES com alpha = 0.01
+
+```{r}
+ses.goog.opt <- ses(goog.diff,alpha = .01,h = 100)
+accuracy(ses.goog.opt, goog.diff.test)
+```
+O RMSE foi de 8.141450 para 8.083196.
+
+Outra técnica de suavização exponencial (Holt)
+
+Aplicando o método de Holt: 
+
+```{r}
+holt.goog <- holt(goog.treino, h = 100)
+autoplot(holt.goog) 
+```
+como não fizemos a definição do valor alfa e beta a função holt() identificará o ideal. Assim, se valor do alfa for de 0,9967 irá identificar um aprendizado rápido, e se o beta for 0,0001 indicará um aprendizado lento:
+
+```{r}
+holt.goog$model
 ```
 
 ```{r}
+accuracy(holt.goog,goog.teste)
+```
+
+HOLT-WINTERS
+
+Método sazonal de Holt-Winter é usado para dados com padrões e tendências sazonais. 
+Pode ser implementado usando a estrutura Aditiva ou usando a estrutura Multiplicativa
+dependendo do conjunto de dados. A estrutura ou modelo aditivo é usado quando 
+o padrão sazonal de dados tem a mesma magnitude ou é consistente em toda a extensão,
+enquanto a estrutura ou modelo Multiplicativo é usado se a magnitude do padrão sazonal
+dos dados aumenta ao longo do tempo. 
+São usados três parâmetros de suavização - alfa, beta e gama.
+
+Vamos usar a base qcement do pacote fpp2
+```{r}
+library(fpp2)
+qcement.treino = window(fpp2::qcement,end=c(2012,4))
+qcement.teste = window(fpp2::qcement,start=c(2013,1))
+```
+
+Aplicando o Holt-Winters:
+
+```{r}
+autoplot(decompose(qcement))
+```
+
+Para criarmos um modelo aditivo que lida com erro, tendência e sazonalidade 
+usaremos a função ets() para escolher o melhor modelo aditivo. 
+AAA significa modelo aditivo:
+
+```{r}
+qcement.hw <- ets(qcement.treino,model = "AAA")
+autoplot(forecast::forecast(qcement.hw))
+```
+
+Modelo:
+
+```{r}
+summary(qcement.hw)
+```
+
+acurácia e resíduos:
+
+```{r}
+checkresiduals(qcement.hw)
+```
+
+Previsão para os próximos 5 quadrimestres
+```{r}
+qcement.f1 <- forecast::forecast(qcement.hw,h = 5)
+accuracy(qcement.f1, qcement.teste)
+```
+
+MAM significa  modelo multiplicativo
+
+```{r}
+qcement.hw2 <- ets(qcement.treino,model = "MAM")
+checkresiduals(qcement.hw2)
+```
+
+
+
+Queremos sempre minimizar a taxa de erro RMSE:
+
+```{r}
+gamma <- seq(0.01, 0.85, 0.01) # estipulando o gamma
+RMSE <- NA
+
+for(i in seq_along(gamma)) {
+  hw.expo <- ets(qcement.treino, 
+                 "AAA", 
+                 gamma = gamma[i])
+  future <- forecast::forecast(hw.expo, 
+                     h = 5)
+  RMSE[i] = accuracy(future, 
+                     qcement.teste)[2,2]
+}
+
+error <- data.frame(gamma, RMSE)
+minimum <- filter(error, 
+                  RMSE == min(RMSE))
+
+ggplot(error, aes(gamma, RMSE)) +
+  geom_line() +
+  geom_point(data = minimum, 
+             color = "blue", size = 2) +
+  ggtitle("gamma's impact onforecast errors",
+          subtitle = "gamma = 0.21 minimizes RMSE")
 
 ```
+O gama que miniza o RMSE é 0.21
+
+Novo modelo aditivo com parâmetro gama ótimo e previsão para 5 quadrimestres a frente:
+```{r}
+qcement.hw6 <- ets(qcement.treino, model = "AAA",gamma = 0.21)
+qcement.f6 <- forecast::forecast(qcement.hw6, h = 5)
+accuracy(qcement.f6, qcement.teste)
+```
+
+
+Previsão para 5 quadrimestres a frente:
+```{r}
+autoplot(qcement.f6)
+```
+
+Acessando a base nzbop do pacote "ggseas":
+
+```{r message=FALSE, warning=FALSE}
+library(ggseas)
+library(data.table)
+nzdata <- data.table(nzbop)
+sample_ts <- nzdata[Account == "Current account" & Category=="Services; Exports total",
+                  .(TimePeriod, Value)]
+```
+
+Decomposição em um modelo aditivo:
+```{r message=FALSE, warning=FALSE}
+library(ggseas)
+ggsdc(sample_ts, aes(x = TimePeriod, y = Value), method = "decompose", 
+      frequency = 4, s.window = 8, type = "additive")+ geom_line()+
+  ggtitle("Additive")+ theme_minimal()
+```
+
+
+
+
+Decomposição em um modelo Multiplicativo:
+
+```{r}
+ggsdc(sample_ts, aes(x=TimePeriod, y=Value), method = "decompose", 
+      frequency=4, s.window=8, type = "multiplicative")+ geom_line()+
+  ggtitle("Multiplicative")+ theme_minimal()
+```
+```{r}
+soma = sum(acf(x, na.action = na.omit)$acf^2)
+```
+
+
+## comparando HOLT-WINTERS e ARIMA
+
+Criando a base de dados
+```{r}
+values <- c(92.1,  92.6,  89.5,  80.9,  95.6,  72.5,  71.2,  78.8,  73.8,  83.5,  
+           97.9, 93.4,  98.0,  90.2,  96.7, 100.0, 103.6,  74.6,  78.9,  92.0,  
+           83.4,  98.1, 109.9, 102.2, 102.1,  96.2, 106.9,  95.1, 113.4,  84.0, 
+           88.6,  94.9,  94.7, 105.7, 108.6, 101.9,  113.9, 100.9, 100.2,  91.9,
+           99.6,  87.2,  92.1, 104.9, 103.4, 103.3, 103.9, 108.5)
+time_series <- ts(values, start = 2015, frequency =12)
+```
+
+
+Decomposição
+```{r}
+library(fpp2)
+autoplot(decompose(time_series)) + ggtitle("Decomposition of the series") + 
+  theme(plot.title = element_text(size=8))
+```
+
+
+ARIMA estimando 60 períodos a frente:
+```{r}
+arima <- auto.arima(time_series, seasonal=TRUE, stepwise = FALSE, approximation = FALSE) 
+forecast_arima = forecast::forecast(arima, h=60)
+plot(forecast_arima)
+```
+Plot com ggplot:
+```{r}
+library(tidyverse)
+autoplot(time_series, series=" Historical data") +
+  autolayer(forecast_arima, series=" ARIMA Forecast") +
+  ggtitle(" ARIMA forecasting") +
+  theme(plot.title = element_text(size=8))
+```
+output do modelo arima:
+```{r}
+forecast_arima['model']
+```
+
+Acurácia:
+```{r}
+accuracy(forecast_arima)
+```
+
+
+Holt-Winters
+```{r}
+forecast_hw <- hw(time_series, seasonal="multiplicative", h=60)
+plot(forecast_hw)
+```
+Plot com ggplot:
+```{r}
+autoplot(time_series, series=" Historical data") + 
+  autolayer(forecast_hw, series="Holt-Winter forecast") +
+  ggtitle("HW Exponential Smoothing") +
+  theme(plot.title = element_text(size=8))
+```
+
+
+output do modelo Holt-Winters
+```{r}
+forecast_hw['model']
+```
+
+Acurácia:
+```{r}
+accuracy(forecast_hw)
+```
+
+Diferenças no RMSE, porém, em MAE não é significativa. Em termos de AIC, ARIMA
+parece ser um modelo melhor. Não é recomendável comparar o AIC entre o ARIMA
+e o Holt-Winter.
+
+## PROPHET
+Lebron James é um jogados de basquete
+
+```{r}
+data = read.csv("data/lebron.csv")
+colnames(data) <- c("ds", "y")
+data$y <- log10(data$y)
+data$ds = as.Date(data$ds, format = "%Y-%m-%d")
+plot(y ~ ds, data, type = "l")
+```
+
+Predições para os próximos 365 dias
+```{r message=FALSE, warning=FALSE}
+# sudo apt-get install libv8-dev
+library(prophet)
+m <- prophet(data)
+future <- make_future_dataframe(m, periods = 365)
+forecast <- predict(m, future)
+plot(m, forecast)
+```
+Conversão da unidade temporal:
+```{r}
+prophet_plot_components(m, forecast)
+```
+
+## Comparando modelo ARIMA e PROPHET
+
+```{r}
+library(fpp2)
+data(AirPassengers)
+plot(AirPassengers, ylab="Passengers", type="o", pch =20)
+```
+
+Separação entre treino e teste (período de dois anos)
+
+```{r}
+df_train = window(AirPassengers, end = c(1958, 12))
+df_test  = window(AirPassengers, start = c(1959, 01))
+```
+
+
+
+A variância não é constante, porque aumenta e muda com o tempo, portanto a transformação do log é necessária. Além disso, esta série temporal não é estacionária em média, considerando a sazonalidade, portanto, a diferença de sazonalidade é necessária.
+
+```{r}
+ggtsdisplay(diff(log(AirPassengers), 12))
+```
+
+ACF e PACF sugerem um modelo auto regressivo de ordem 2 e um modelo MA de ordem 1. 
+Assim, o modelo ARIMA (2,0,0) (0,1,1) é selecionado e é treinado com o conjunto de treinamento. 
+Dois parâmetros são definidos: include.constant e lambda. O primeiro adiciona ao modelo a interceptação. O outro, em vez disso, define a transformação do log.
+
+```{r}
+arima_1 <- Arima(df_train, c(2, 0, 0), c(0, 1, 1), include.constant = TRUE, lambda = 0)
+ggtsdisplay(arima_1$residuals)
+```
+
+Não há uma autocorrelação automática significativa entre as defasagens. O modelo pode prever os últimos dois anos.
+
+```{r}
+arima_f <- forecast::forecast(arima_1, 24)
+autoplot(arima_f)
+```
+
+
+
+RMSE é usado para avaliar a medida das diferenças entre os valores (amostra ou população) previstos
+por mum modelo ou um estimador e os valores observados
+
+```{r}
+err = df_test - arima_f$mean
+rmse <- sqrt(mean(err^2, na.rm = TRUE))
+rmse
+```
+
+O MAPE - erro absoluto do percentual da média - mede a precisão como uma porcentagem e pode ser calculado como o erro percentual absoluto médio para cada período de tempo menos os valores reais
+divididos pelos valores reais.
+
+```{r}
+mape <- mean(abs(err) / (arima_f$mean+ err)) * 100
+mape
+```
+
+MAE - erro absoluto da média - é a medida de erros entre observações emparelhadas que expressam o mesmo fenômeno:
+
+```{r}
+mae <- mean(abs(err), na.rm = TRUE)
+mae
+```
+
+Lendo a mesma base air_passengers mas transformada em data.frame para ser usada em prophet:
+```{r}
+air_passengers = read.csv("data/air_passengers.csv")
+df_train = subset(air_passengers, ds < "1959-01-01")
+df_test = subset(air_passengers, ds >= "1959-01-01")
+```
+
+A sazonalidade não é constante no tempo, mas aumenta com a tendência. Os modelos aditivos não são os melhores para lidar com esse tipo de séries temporais. Mas com o Prophet podemos passar da sazonalidade aditiva para a sazonalidade multiplicativa por meio do parâmetro "seasonality_mode".
+Frequência mensal (m) e 24 meses:
+
+```{r message=FALSE, warning=FALSE}
+library(prophet)
+m = prophet(df_train, seasonality.mode = 'multiplicative')
+future <- make_future_dataframe(m, 24, freq = 'm', include_history = F)
+forecast <- predict(m, future)
+plot(m, forecast)
+```
+
+Para efeito de comparação, vamos avaliar o modelo com o RMSE, MAE e MAPE:
+
+```{r}
+pred <- forecast$yhat
+err <- df_test$y - forecast$yhat
+mape <- mean(abs(err) / (pred+ err)) * 100
+rmse <- sqrt(mean(err^2, na.rm = TRUE)) 
+mae <- mean(abs(err), na.rm = TRUE) 
+cbind(mape, rmse, mae)
+```
+
+Modelo Arima
+mape     rmse      mae
+2.356519 14.12564 10.62677
+
+Modelo Prophet
+mape     rmse      mae
+5.463905 31.08188 25.89196
+
+Assim, nesses dados do airpassengers o modelo do Arima é melhor.
+
+### ARIMAX E SARIMAX
+
+Base da dados: uschange, mudanças percentuais nas despesas de consumo pessoal, renda,
+produção, poupança, e taxa de desemprego nos EUA entre 1960 e 2016.
+
+Vamos considerar apenas consumo e renda:
+
+```{r}
+library(fpp2)
+uschange_df <- uschange[,1:2]
+autoplot(uschange_df, facets=TRUE) +
+  xlab("Year") + ylab("") +
+  ggtitle("Quarterly changes in US consumptionand personal income")
+```
+ Plotando a autocorrelação
+```{r}
+ggAcf(uschange_df) 
+```
+
+plotando o ACF
+```{r}
+ggPacf(uschange_df)
+```
+
+Decomposição da variável "consumption":
+```{r}
+uschange_freq_4 <- uschange_df[,"Consumption"] %>% ts(., frequency=4)
+uschange_stl <- stl(uschange_freq_4, s.window = "periodic")
+autoplot(uschange_stl)
+```
+ 
+Decomposição da variável "income":
+```{r}
+uschange_income_freq_4 <- uschange_df[,"Income"] %>% ts(., frequency=4) 
+uschange_income_stl <- stl(uschange_income_freq_4, s.window = "periodic")
+autoplot(uschange_income_stl)
+```
+
+Arimax - Autoregressive Integrated Moving Average with Explanatory Variable:
+Modelo de regressão múltipla com um ou mais termos autorregressivos (AR) e um 
+ou um ou mais termos de média móvel (MA). Adequado para prever quando os dados
+são estacionários/não estacionários e multivariados com qualquer tipo de 
+padrão de dados, ou seja, tendência/sazonalidade/ciclicidade.
+Forecast pelo modelo ARIMAX com argumento xreg:
+```{r message=FALSE, warning=FALSE}
+uschange_arimax <- auto.arima(uschange_df[,"Consumption"], # especificando a tendência
+                             xreg = uschange_df[,"Income"], # variável exógena
+                             trace = TRUE, 
+                             seasonal= FALSE,
+                             stepwise=FALSE,
+                             approximation=FALSE)
+```
+
+Modelo:
+```{r}
+summary(uschange_arimax)
+```
+
+Avaliação dos resíduos do modelo:
+```{r message=FALSE, warning=FALSE}
+checkresiduals(uschange_arimax)
+```
+
+testes dos resíduos do modelo
+```{r message=FALSE, warning=FALSE}
+library("itsmr")
+itsmr::test(resid(uschange_arimax))
+```
+
+Os resíduos não são claros sobre a estacionariedade. 
+Seria o SARIMAX melhor?
+
+Forecast pelo modelo SARIMAX, inclusão da sazonalidade
+```{r}
+uschange_sarimax <- auto.arima(uschange_df[,"Consumption"], # especificação do modelo
+                              xreg = uschange_df[,"Income"], # variável exógena
+                              trace = TRUE, 
+                              seasonal= TRUE, # altera o argumento
+                              stepwise=FALSE,
+                              approximation=FALSE)
+```
+modelo:
+```{r}
+summary(uschange_sarimax)
+```
+
+os resíduos são conjuntamente não correlacionados:
+```{r}
+checkresiduals(uschange_sarimax)
+```
+
+Especificando a série 
+```{r}
+uschange_ts <- ts(uschange_df, frequency = 4, start = 1970, end= 2016)
+uschange_train <- window(uschange_ts, end=2010)
+uschange_test <- window(uschange_ts, start=2011)
+```
+
+
+Treinando o modelo apenas com dados de treino
+```{r}
+uschange_arimax2 <- auto.arima(uschange_train[,"Consumption"], # especificando a tendência
+                              xreg = uschange_train[,"Income"], # variável exógena
+                              trace = FALSE, # não apresentar modelos modificados
+                              seasonal= FALSE, # não permitir modelo SARIMAX
+                              stepwise= FALSE,
+                              approximation=FALSE)
+```
+
+Elaborando as previsões
+```{r}
+myforecasts <- forecast::forecast(uschange_arimax2, xreg=rep(uschange_test[,"Income"],20))
+autoplot(myforecasts, xlim=c(1995, 2017)) + autolayer(uschange_ts[,"Consumption"])
+```
+
+
+
+## MODELTIME
+
+Pacote Modeltime: Tidy Time Series Forecasting using Tidymodels
+Framework: clássicos (ARIMA), novos métodos (Prophet), machine learning (Tidymodels)
+
+```{r message=FALSE, warning=FALSE}
+# sudo apt-get install libcurl4-nss-dev
+library(timetk)
+bike_transactions_tbl = bike_sharing_daily[,c('dteday', 'cnt')]
+colnames(bike_transactions_tbl) = c("date", "value")
+
+bike_transactions_tbl |> plot_time_series(date, value, .interactive = FALSE)
+```
+Vamos separar a base em treino e teste, time_series_split() no período de 3 meses:
+
+```{r}
+splits =  bike_transactions_tbl |>
+  time_series_split(assess = "3 months", cumulative = TRUE, date_var=date)
+```
+
+Convertendo a base em treino e teste
+```{r}
+splits |>
+  tk_time_series_cv_plan() |>
+  plot_time_series_cv_plan(date, value, .interactive = FALSE)
+```
+
+Modelos automáticos  AutoArima
+
+```{r message=FALSE, warning=FALSE}
+library(tidymodels)
+model_fit_arima <- arima_reg() |>  
+  set_engine("auto_arima") |> 
+  fit(value ~ date, training(splits))
+model_fit_arima
+```
+
+Modelo prophet:
+```{r}
+model_fit_prophet = prophet_reg(seasonality_yearly = TRUE) |>
+  set_engine("prophet") |>
+  fit(value ~ date, training(splits))
+model_fit_prophet
+```
+
+Adição de etapas de série temporal
+
+```{r}
+recipe_spec <- recipe(value ~ date, training(splits)) |>
+  step_timeseries_signature(date)                     |>
+  step_rm(contains("am.pm"), contains("hour"), contains("minute"),
+          contains("second"), contains("xts"))        |>
+  step_fourier(date, period = 365, K = 5)             |>
+  step_dummy(all_nominal())
+
+# recipe_spec |> prep() |> juice()
+```
+
+
+ElasticNet: regressão regularizada que combina linearmente os métodos Lasso e Ridge
+```{r}
+model_spec_glmnet <- linear_reg(penalty = 0.01, mixture = 0.5) |> set_engine("glmnet")
+```
+
+
+Vamos aplicar o workflox
+
+```{r}
+workflow_fit_glmnet = workflow() |>
+  add_model(model_spec_glmnet)    |>
+  add_recipe(recipe_spec %>% step_rm(date)) |>
+  fit(training(splits))
+```
+
+Random Forest: método para classificação, regressão e outras por meio da 
+construção de árvores de decisão no treinamento
+
+```{r}
+model_spec_rf = rand_forest(trees = 500, min_n = 50) |>  set_engine("randomForest")
+```
+
+```{r}
+workflow_fit_rf <- workflow()  |>
+  add_model(model_spec_rf)     |>
+  add_recipe(recipe_spec |> step_rm(date)) |>
+  fit(training(splits))
+```
+
+
+```{r}
+model_spec_prophet_boost <- prophet_boost(seasonality_yearly = TRUE) |> set_engine("prophet_xgboost") 
+```
+
+```{r message=FALSE, warning=FALSE}
+workflow_fit_prophet_boost <- workflow() %>% # aplicando o fluxo
+  add_model(model_spec_prophet_boost) %>%
+  add_recipe(recipe_spec) %>%
+  fit(training(splits))
+```
+
+Workflow do pacote Modeltime
+
+1. Criando a tabela
+2. Calibrando, testando a previsão e a acurácia
+3. Reajustando e fazendo a previsão
+
+Criando a tabela com os modelos:
+```{r}
+# sudo apt-get install libcurl4-nss-dev
+library(modeltime.h2o)
+
+model_table <- modeltime_table(
+  model_fit_arima, 
+  model_fit_prophet,
+  workflow_fit_glmnet,
+  workflow_fit_rf,
+  workflow_fit_prophet_boost
+) 
+```
+
+Calibrando
+```{r}
+calibration_table = model_table |>  modeltime_calibrate(testing(splits))
+calibration_table 
+```
+
+Testando a previsão
+```{r}
+calibration_table |>
+  modeltime_forecast(actual_data = bike_transactions_tbl) |>
+  plot_modeltime_forecast(.interactive = FALSE)
+```
+Avaliando a acurácia
+
+```{r}
+calibration_table |>
+  modeltime_accuracy() |>
+  table_modeltime_accuracy(.interactive = FALSE)
+```
+
+
+Novo plot removendo o modelo ARIMA pela baixa acurácia:
+```{r}
+calibration_table |> 
+  filter(.model_id != 1) |>
+  modeltime_refit(bike_transactions_tbl) |>
+  modeltime_forecast(h = "12 months", actual_data = bike_transactions_tbl) |>
+  plot_modeltime_forecast(.interactive = FALSE)
+```
+
+## AUTOMATIC FORECASTING
+
+Base: Vendas Semanais do Walmart disponível no pacote timetk
+```{r message=FALSE, warning=FALSE}
+library(modeltime.h2o)
+library(tidymodels)
+library(timetk)
+
+data_tbl = walmart_sales_weekly[,c("id", "Date", "Weekly_Sales")]
+data_tbl |> group_by(id) |>
+  plot_time_series(
+    .date_var    = Date,
+    .value       = Weekly_Sales,
+    .facet_ncol  = 2,
+    .smooth      = F,
+    .interactive = F
+  )
+```
+
+Gerando uma base de treino e teste
+
+```{r}
+splits <- time_series_split(data_tbl, assess = "3 month", cumulative = TRUE, date_var=Date)
+```
+
+
+```{r}
+recipe_spec <- recipe(Weekly_Sales ~ ., data = training(splits)) |> step_timeseries_signature(Date) 
+```
+
+
+```{r}
+train_tbl <- training(splits) %>% bake(prep(recipe_spec), .) 
+test_tbl  <- testing(splits) %>% bake(prep(recipe_spec), .)
+```
+
+```{r}
+h2o.init(
+  nthreads = -1,
+  ip       = 'localhost',
+  port     = 54321
+)
+```
+
+
+```{r}
+model_spec <- automl_reg(mode = 'regression') %>% # uso do algoritmo de ML
+  set_engine(
+    engine                     = 'h2o',
+    max_runtime_secs           = 5, 
+    max_runtime_secs_per_model = 3,
+    max_models                 = 3,
+    nfolds                     = 5,
+    exclude_algos              = c("DeepLearning"),
+    verbosity                  = NULL,
+    seed                       = 786
+  ) 
+model_spec
+```
+
+Treinando o modelo
+
+```{r}
+model_fitted <- model_spec |> fit(Weekly_Sales ~ ., data = train_tbl)
+model_fitted
+```
+
+Prevendo o modelo de teste
+```{r}
+predict(model_fitted, test_tbl)
+```
+
+Como o modelo preparado voltamos para o fluxo do Modeltime
+
+1. Criando a tabela
+2. Calibrando, testando a previsão e a acurácia
+3. Reajustando e fazendo a previsão
+
+Criando a tabela modelo
+
+```{r}
+modeltime_tbl <- modeltime_table(
+  model_fitted
+) 
+modeltime_tbl
+```
+
+
+Calibrando, testando e configurando a acurácia do modelo
+```{r}
+modeltime_tbl %>%
+  modeltime_calibrate(test_tbl) %>%
+  modeltime_forecast(
+    new_data    = test_tbl,
+    actual_data = data_tbl,
+    keep_data   = TRUE
+  ) %>%
+  group_by(id) %>%
+  plot_modeltime_forecast(
+    .facet_ncol = 2, 
+    .interactive = FALSE
+  )
+```
+
+
+Fazendo a previsão
+```{r}
+data_prepared_tbl <- bind_rows(train_tbl, test_tbl) # preparando os dados
+
+future_tbl <- data_prepared_tbl %>% # criando o dataset
+  group_by(id) %>%
+  future_frame(.length_out = "1 year") %>%
+  ungroup()
+
+future_prepared_tbl <- bake(prep(recipe_spec), future_tbl)
+
+```
+
+Retreinando todo a base de dados. Prática para melhorar o resultado das previsões
+
+```{r}
+refit_tbl <- modeltime_tbl %>%
+  modeltime_refit(data_prepared_tbl)
+```
+
+
+Visualiação da previsão
+```{r}
+refit_tbl %>%
+  modeltime_forecast(
+    new_data    = future_prepared_tbl,
+    actual_data = data_prepared_tbl,
+    keep_data   = TRUE
+  ) %>%
+  group_by(id) %>%
+  plot_modeltime_forecast(
+    .facet_ncol  = 2,
+    .interactive = FALSE
+  )
+```
+
+
+
+
 
