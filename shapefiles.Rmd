@@ -1,0 +1,142 @@
+---
+title: "Shapefiles"
+output:
+  html_document:
+    df_print: paged
+---
+
+O pacote **measurements** permite converter latitude e longitude em radianos (graus, minutos, segundos) para decimal ou vice-versa.
+
+Por exemplo o bairro do Rio Pequeno em São Paulo latitude e longitude decimal: -23.5665987,-46.7586146.
+Se quiséssemos converter -23.5665987 para coordenadas em radianos faríamos:
+
+```{r}
+minutos = 60*0.5665987
+segundos = 60*(minutos-33)
+print(minutos)
+print(segundos)
+```
+
+Assim -23.5665987 corresponderia a: **-23 33' 59.75532''**.
+
+Usando o pacote **measurements**:
+
+```{r}
+library(measurements)
+conv_unit(x = -23.5665987, from = "dec_deg", to = "deg_min_sec")
+```
+
+O inverso, converter **-23 33' 59.75532''** para decimal:
+
+```{r}
+23 + 33/60 + 59.75532/(60*60)
+```
+
+Ou usando a biblioteca:
+
+```{r}
+conv_unit(x = "-23 33 59.75532", from = "deg_min_sec", to = "dec_deg")
+```
+
+Para abertura do shapefile usamos o pacote rgdal.
+Como exemplo baixei um shapefile do site
+https://www.ibge.gov.br/geociencias/organizacao-do-territorio/malhas-territoriais/15774-malhas.html
+em Downloads, municipio_2020, Minas Gerais. 
+
+Os arquivos shp, dbf, shx e prj devem estar em um único diretório e com o mesmo nome em cada extensão.
+Exemplo, no diretório **MG_Municipios** vamos ler os arquivos MG.shp, MG.dbf, MG.shx e MG.prj:
+
+```{r message=FALSE, warning=FALSE}
+library(rgdal)
+shapefile_MG <- readOGR(dsn = "data/shapefiles/MG_Municipios", layer = "MG")
+```
+
+Lembrando que:
+
+- shp: geometria, isto é, os polígonos do mapa
+- dbf: base de dados
+- shx: relaciona os arquivos shp e dbf
+- prj: sistema de projeção geográfica 
+
+Para acessar os dados usamos o arroba e depois o nome da variável:
+
+```{r}
+head(shapefile_MG@data$NM_MUN)
+```
+
+Mapa:
+
+```{r}
+plot(shapefile_MG)
+```
+
+Cálculo da área (em milimetros) do poligono de todos municípios usando o método area() do pacote raster:
+
+```{r}
+library(raster)
+raster::area(shapefile_MG)
+```
+Qual é o municipio 853?
+
+```{r}
+shapefile_MG@data$NM_MUN[853]
+```
+
+Qual a área de Wenceslau Braz?
+
+```{r}
+raster::area(shapefile_MG)[853]
+```
+
+Podemos criar uma nova coluna com a área em km:
+
+```{r}
+shapefile_MG$data$area_em_km = raster::area(shapefile_MG)/1000000
+```
+
+Área de Wenceslau Braz em km:
+```{r}
+shapefile_MG$data$area_em_km[853]
+```
+
+Vamos ler o shapefile da malha municipal de são paulo baixado de:
+https://www.ibge.gov.br/geociencias/organizacao-do-territorio/malhas-territoriais.html
+
+```{r message=FALSE, warning=FALSE}
+library(rgdal)
+shapefile_SP <- readOGR(dsn = "data/shapefiles/SP_Municipios", layer = "SP")
+```
+
+Dado o arquivo sp.csv que contém pib, população e idh dos munícípios de são paulo:
+
+```{r}
+sp = read.csv("data/sp.csv")
+```
+
+Juntando o arquivo csv com o shapefile: 
+
+```{r}
+shapefile_SP <- merge(x = shapefile_SP,
+                      y = sp,
+                      by.x = "CD_MUN",
+                      by.y = "codigo")
+```
+
+Exportanto o shapefile modificado:
+
+```{r message=FALSE, warning=FALSE}
+writeOGR(obj = shapefile_SP, 
+         layer = "SP_mudado",
+         overwrite_layer=TRUE,
+         driver = "ESRI Shapefile", 
+         dsn = "/tmp/shapefile_SP_modificado")
+```
+
+Podemos acessar o dataframe que está dentro do objeto shapefile com **@data**:
+
+```{r}
+hist(shapefile_SP@data$idh)
+```
+
+
+
