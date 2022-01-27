@@ -138,5 +138,108 @@ Podemos acessar o dataframe que está dentro do objeto shapefile com **@data**:
 hist(shapefile_SP@data$idh)
 ```
 
+plotagem do shapefile com a biblioteca tmap
 
+```{r}
+library("tmap")
 
+tm_shape(shp = shapefile_SP) +
+  tm_fill(col = "idh", palette = "Blues")
+```
+Para ver as paletas de cores disponíveis:
+
+```{r}
+library(RColorBrewer)
+display.brewer.all()
+```
+Usando outra paleta:
+
+```{r}
+tm_shape(shp = shapefile_SP) +
+  tm_fill(col = "idh", palette = "BrBG")
+```
+Trocando para 4 intervalos, no caso quantile:
+
+```{r}
+tm_shape(shp = shapefile_SP) +
+  tm_fill(col = "idh", palette = "BrBG", style = "quantile", n = 4)
+```
+
+```{r}
+tm_shape(shp = shapefile_SP) +
+  tm_fill(col = "idh", palette = "BrBG", style = "quantile", n = 4, legend.hist = TRUE)
+```
+Posicionando legenda fora do gráfico:
+
+```{r}
+tm_shape(shp = shapefile_SP) +
+  tm_fill(col = "idh", palette = "BrBG", style = "quantile", n = 4, legend.hist = TRUE) +
+  tm_layout(legend.outside = TRUE)
+```
+
+Controlando cada detalhe do gráfico:
+
+```{r}
+tm_shape(shp = shapefile_SP) +
+  tm_fill(col = "idh", palette = "BrBG", style = "quantile", n = 4, legend.hist = TRUE) +
+  tm_layout(legend.outside = TRUE) +
+  tm_layout(legend.text.size = 0.8,
+            legend.title.size = 0.8,
+            legend.hist.size = 0.8,
+            legend.hist.height = 0.3,
+            legend.hist.width = 0.3,
+            frame = FALSE,
+            main.title = "IDH nos Municípios de SP")
+```
+Colocando bordas e rosa dos ventos:
+
+```{r}
+tm_shape(shp = shapefile_SP) +
+  tm_fill(col = "idh", palette = "BrBG", style = "quantile", n = 4, legend.hist = TRUE) +
+  tm_layout(legend.outside = TRUE) +
+  tm_layout(legend.text.size = 0.8,
+            legend.title.size = 0.8,
+            legend.hist.size = 0.8,
+            legend.hist.height = 0.3,
+            legend.hist.width = 0.3,
+            frame = FALSE,
+            main.title = "IDH nos Municípios de SP") +
+  tm_borders(alpha = 0.8) +
+  tm_compass(type = "8star", show.labels = 3)
+```
+Selecionando somente guarulhos no shapefile:
+
+```{r}
+library(kableExtra)
+shapefile_SP@data |> kable() |> kable_styling(bootstrap_options = "striped")
+```
+
+Selecionando Guarulhos:
+```{r}
+shapefile_guarulhos <- shapefile_SP[shapefile_SP@data$NM_MUN == "Guarulhos", ]
+shapefile_osasco <- shapefile_SP[shapefile_SP@data$NM_MUN == "Osasco", ]
+```
+
+Plotando somente Guarulhos
+
+```{r}
+tm_shape(shp = shapefile_guarulhos) + tm_borders()
+```
+
+Combinando shapefile de osasco e guarulhos:
+
+```{r}
+library(raster)
+shapefile_guarulhos_e_osasco = bind(shapefile_guarulhos,shapefile_osasco)
+```
+
+Plot de Osasco e Guarulhos:
+```{r}
+tm_shape(shp = shapefile_guarulhos_e_osasco) + tm_borders()
+```
+
+# Observando a base de dados do objeto shp_mercosul:
+
+```{r}
+shapefile_guarulhos_e_osasco@data |> kable() |> kable_styling(bootstrap_options = "striped")
+```

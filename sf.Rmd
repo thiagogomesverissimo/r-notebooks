@@ -1,0 +1,50 @@
+---
+title: "sf - simple feature"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+Tabela de crimes em são paulo baixados:
+
+https://www.kaggle.com/danlessa/geospatial-sao-paulo-crime-database
+
+```{r}
+crimes = read.csv("data/crimes.csv")
+```
+
+Criando um objeto do tipo sf (simple feature) a partir do dataframe crimes, o sf é um data frame georreferenciado:
+
+```{r}
+library(sf)
+sf_crimes <- st_as_sf(x = crimes, coords = c("longitude", "latitude"), crs = st_crs(4326))
+```
+
+crs: coordinate reference system
+
+```{r}
+library(tmap)
+tm_shape(shp = sf_crimes) + 
+  tm_dots(col = "deepskyblue4", 
+          border.col = "black", 
+          size = 0.2, 
+          alpha = 0.8)
+```
+
+Ativando a opção de baixar mapas, para desativar:
+
+```{r}
+tmap_mode("view") # para desativar tmap_mode("plot")
+```
+
+Re-plotando os pontos no mapa do openstreetmap:
+
+```{r}
+tm_shape(shp = sf_crimes) + 
+  tm_dots(col = "deepskyblue4", 
+          border.col = "black", 
+          size = 0.1, 
+          alpha = 0.8)
+```
+
