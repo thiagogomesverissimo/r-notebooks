@@ -5,12 +5,13 @@ output:
     df_print: paged
 ---
 
-
 Tabela de crimes em são paulo baixados:
 
 https://www.kaggle.com/danlessa/geospatial-sao-paulo-crime-database
 
 ```{r}
+library(tmap)
+library(sf)
 crimes = read.csv("data/crimes.csv")
 ```
 
@@ -23,8 +24,10 @@ sf_crimes <- st_as_sf(x = crimes, coords = c("longitude", "latitude"), crs = st_
 
 crs: coordinate reference system
 
+Plotando somente os pontos:
+
 ```{r}
-library(tmap)
+tmap_mode("plot")
 tm_shape(shp = sf_crimes) + 
   tm_dots(col = "deepskyblue4", 
           border.col = "black", 
@@ -48,3 +51,32 @@ tm_shape(shp = sf_crimes) +
           alpha = 0.8)
 ```
 
+```{r message=FALSE, warning=FALSE}
+library(rgdal)
+shapefile_SP <- readOGR(dsn = "data/shapefiles/SP_Municipios", layer = "SP")
+```
+
+Combinando sf e shapefile:
+
+```{r}
+tmap_mode("plot")
+tm_shape(shp = shapefile_SP) + 
+  tm_borders(alpha = 0.5) +
+  tm_shape(shp = sf_crimes) + 
+    tm_dots(col = "deepskyblue4", 
+          border.col = "black", 
+          size = 0.1, 
+          alpha = 0.8)
+```
+Usando a camada do openstreetmap:
+
+```{r}
+tmap_mode("view")
+tm_shape(shp = shapefile_SP) + 
+  tm_borders(alpha = 0.5) +
+  tm_shape(shp = sf_crimes) + 
+    tm_dots(col = "deepskyblue4", 
+          border.col = "black", 
+          size = 0.1, 
+          alpha = 0.8)
+```
