@@ -70,6 +70,14 @@ Mapa:
 plot(shapefile_MG)
 ```
 
+```{r}
+shapefile_MG@proj4string
+```
+
+Sistema de coordenada: GRS80
+
+DATU
+
 Cálculo da área (em milimetros) do poligono de todos municípios usando o método area() do pacote raster:
 
 ```{r}
@@ -106,6 +114,19 @@ https://www.ibge.gov.br/geociencias/organizacao-do-territorio/malhas-territoriai
 library(rgdal)
 shapefile_SP <- readOGR(dsn = "data/shapefiles/SP_Municipios", layer = "SP")
 ```
+
+```{r}
+shapefile_SP@proj4string
+```
+
+Convertedo o sistema de coordenadas e garantindo que a unidade de medidas é metro:
+
+```{r}
+shapefile_SP_WGS84 = spTransform(shapefile_SP, CRSobj = "+datum=WGS84 +init=epsg:4326 +unit=m")
+shapefile_SP_WGS84@proj4string
+```
+
+
 
 Dado o arquivo sp.csv que contém pib, população e idh dos munícípios de são paulo:
 
@@ -155,8 +176,9 @@ display.brewer.all()
 Usando outra paleta:
 
 ```{r}
+library(tmap)
 tm_shape(shp = shapefile_SP) +
-  tm_fill(col = "idh", palette = "BrBG")
+  tm_fill(col = "idh", palette = "viridis")
 ```
 Trocando para 4 intervalos, no caso quantile:
 
@@ -235,7 +257,9 @@ shapefile_guarulhos_e_osasco = bind(shapefile_guarulhos,shapefile_osasco)
 
 Plot de Osasco e Guarulhos:
 ```{r}
-tm_shape(shp = shapefile_guarulhos_e_osasco) + tm_borders()
+tm_shape(shp = shapefile_guarulhos_e_osasco) + 
+  tm_borders() + 
+  tm_text(text = "NM_MUN", size = 0.7)
 ```
 
 # Observando a base de dados do objeto shp_mercosul:
@@ -243,3 +267,35 @@ tm_shape(shp = shapefile_guarulhos_e_osasco) + tm_borders()
 ```{r}
 shapefile_guarulhos_e_osasco@data |> kable() |> kable_styling(bootstrap_options = "striped")
 ```
+
+## outro exemplo
+
+```{r message=FALSE, warning=FALSE}
+library(rgdal)
+shp_centro_oeste <- readOGR(dsn = "data/shapefiles/shapefile_centrooeste", 
+                            layer = "centrooeste_shapefile", verbose = F)
+dados_centro_oeste = read.csv("data/dados_centro_oeste.csv")
+```
+
+merge:
+```{r}
+shp_centro_oeste_dados <- merge(x = shp_centro_oeste,
+                                y = dados_centro_oeste,
+                                by.x = "CD_GEOCODM",
+                                by.y = "CD_GEOCODM")
+```
+
+mapa:
+```{r}
+library(tmap)
+tm_shape(shp = shp_centro_oeste_dados) + 
+  tm_fill(col = "poverty", 
+          style = "quantile", 
+          n = 4, 
+          palette = "viridis", 
+          legend.hist = TRUE) +
+  tm_borders(alpha = 0.8) +
+  tm_compass() +
+  tm_layout(legend.outside = TRUE)
+```
+

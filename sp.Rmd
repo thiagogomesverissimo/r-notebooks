@@ -1,0 +1,173 @@
+---
+title: "sp - spatial points"
+output:
+  html_document:
+    df_print: paged
+---
+
+Tabela de crimes em são paulo baixados:
+
+https://www.kaggle.com/danlessa/geospatial-sao-paulo-crime-database
+
+```{r}
+library(tmap)
+library(sf)
+crimes = read.csv("data/crimes.csv")
+```
+
+
+```{r}
+coordenadas_crimes <- cbind(crimes$longitude, crimes$latitude)
+```
+
+Utilizaremos a função SpatialPoints() para criar um objeto do tipo sp:
+```{r}
+library(sp)
+sp_crimes <- SpatialPoints(coords = coordenadas_crimes, proj4string = CRS("+proj=longlat"))
+```
+
+```{r}
+sp_crimes@proj4string
+```
+
+
+```{r}
+plot(sp_crimes)
+```
+mapa
+```{r}
+library(tmap)
+tmap_mode("plot")
+
+tm_shape(shp = sp_crimes) + tm_dots(size = 1)
+```
+Convertendo objeto spatial points para coordenadas planares pois assim conseguimos usar o gBuffer:
+```{r}
+crimes_UTM <- spTransform(x = sp_crimes, CRSobj = CRS("+init=epsg:22523"))
+plot(crimes_UTM)
+```
+Com o gBuffer conseguimos cincundar o ponto com um raio de alcance:
+```{r}
+library(rgeos)
+buffer_crimes <- gBuffer(spgeom = crimes_UTM, width = 150000, byid = TRUE)
+tm_shape(shp = buffer_crimes) +   tm_borders()
+```
+
+Usando tmap:
+```{r}
+tmap_mode("view")
+tm_shape(shp = buffer_crimes) + tm_borders()
+```
+
+Combinando os objetos sp, sf e shapfile:
+
+
+```{r}
+library(rgdal)
+library(sf)
+library(tmap)
+
+shapefile_SP <- readOGR(dsn = "data/shapefiles/SP_Municipios", layer = "SP")
+shapefile_SP_WGS84 = spTransform(shapefile_SP, CRSobj = "+datum=WGS84 +init=epsg:4326 +unit=m")
+
+sf_crimes <- st_as_sf(x = crimes, coords = c("longitude", "latitude"), crs = st_crs(4326))
+
+tmap_mode("view")
+tm_shape(shp = shapefile_SP_WGS84) + 
+  tm_borders(alpha = 0.5) +
+  tm_shape(shp = sf_crimes) + 
+    tm_dots(col = "deepskyblue4", 
+          border.col = "black", 
+          size = 0.1, 
+          alpha = 0.8)
+  #tm_dots(col = "regiao", size = 0.02) +
+  tm_shape(buffer_crimes) + 
+  tm_borders(col = "black") 
+```
+
+
+buffer union
+A técnica de buffer union faz a intesercção das áreas:
+
+```{r}
+library(rgeos)
+
+buffer_union <- gUnaryUnion(spgeom = buffer_crimes)
+```
+
+
+Intersecção:
+
+```{r}
+library(rgdal)
+library(sf)
+library(tmap)
+
+tmap_mode("view")
+tm_shape(shp = shapefile_SP_WGS84) + 
+  tm_borders(alpha = 0.5) +
+  tm_shape(shp = sf_crimes) + 
+    tm_dots(col = "deepskyblue4", 
+          border.col = "black", 
+          size = 0.1, 
+          alpha = 0.8)
+  tm_shape(buffer_union) + 
+  tm_borders(col = "black") 
+```
+ 
+ Calculando áreas de saturação, ou seja, onde as circunferências se sobrepões mais:
+ 
+ spatial points com dataframe:
+ 
+```{r}
+crimes_sp_df <- SpatialPointsDataFrame(data = crimes,
+                                          coords = coordenadas_crimes,
+                                          proj4string = CRS("+proj=longlat"))
+crimes_sp_df@data
+```
+ 
+Cálculo das kernel densities, podemos utilizar a função kernelUD():
+
+```{r}
+library(adehabitatHR)
+crimes_dens <- kernelUD(xy = crimes_sp_df,
+                           h = "href",
+                           grid = 1000,
+                           boundary = NULL)
+
+plot(crimes_dens)
+```
+
+Para estabelecer as zonas com maior densidade, propomos o seguinte:
+```{r}
+library(adehabitatHR)
+
+zona1 <- getverticeshr(x = crimes_dens, percent = 20) 
+zona2 <- getverticeshr(x = crimes_dens, percent = 40) 
+zona3 <- getverticeshr(x = crimes_dens, percent = 60) 
+zona4 <- getverticeshr(x = crimes_dens, percent = 80)
+
+tmap_options(check.and.fix = TRUE) 
+tm_shape(shp = shapefile_SP_WGS84) + 
+  tm_fill(col = "gray90") + 
+  tm_borders(col = "white", alpha = 0.5) + 
+  tm_shape(shp = crimes_sp_df) + 
+  tm_dots(col = "regiao", size = 0.25) + 
+  tm_shape(zona1) + 
+  tm_borders(col = "firebrick4", lwd = 2.5) +
+  tm_fill(alpha = 0.4, col = "firebrick4") + 
+  tm_shape(zona2) + 
+  tm_borders(col = "firebrick3", lwd = 2.5) + 
+  tm_fill(alpha = 0.3, col = "firebrick3") + 
+  tm_shape(zona3) + 
+  tm_borders(col = "firebrick2", lwd = 2.5) + 
+  tm_fill(alpha = 0.2, col = "firebrick2") +
+  tm_shape(zona4) + 
+  tm_borders(col = "firebrick1", lwd = 2.5) + 
+  tm_fill(alpha = 0.1, col = "firebrick1")
+
+tmap_mode("plot")
+
+```
+
+

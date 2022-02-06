@@ -1,0 +1,123 @@
+---
+title: "raster"
+output: html_notebook
+---
+
+```{r}
+library(raster)
+relevo_sp <- raster("data/raster/sp/relevo_sp.tif")
+
+class(relevo_sp)
+```
+
+Explorando o objeto relevo_sp:
+```{r}
+relevo_sp
+```
+plot:
+```{r}
+plot(relevo_sp)
+```
+
+Pegando dados que estão no raster e salvando num dataframe:
+
+```{r}
+relevo_sp_df <- as.data.frame(relevo_sp, xy = TRUE)
+```
+
+Histograma:
+```{r}
+relevo_sp_df |>
+  ggplot() +
+  geom_histogram(aes(x = relevo_sp),
+                 fill = "deepskyblue4",
+                 color = "white") +
+  scale_y_continuous(labels = scales::comma) +
+  labs(x = "Altitudes das Formações Geográficas",
+       y = "Frequência") +
+  theme_bw()
+```
+
+```{r}
+image(relevo_sp, 
+      xlab = "Longitude", 
+      ylab = "Latitude", 
+      main = "Relevo de Parte do Litoral Paulista",
+      col = terrain.colors(100))
+```
+
+
+```{r}
+library(rayshader)
+
+relevo_matriz <- raster_to_matrix(raster = relevo_sp, verbose = interactive())
+
+relevo_matriz |>
+  sphere_shade(texture = "imhof1") |>
+  plot_3d(relevo_matriz, zscale = 50, theta = -45, phi = 45, water = TRUE,
+          windowsize = c(1000,800), zoom = 0.75, waterlinealpha = 0.3,
+          wateralpha = 0.5, watercolor = "lightblue", waterlinecolor = "white",
+          waterdepth = 100)
+render_snapshot()
+```
+
+```{r}
+library(tmap)
+tmap_mode("plot")
+tm_shape(shp = relevo_sp) + 
+  tm_raster(style = "quantile", 
+            n = 5,
+            palette = "viridis") +
+  tm_layout(legend.position = c("left", "bottom"), 
+            legend.outside = TRUE)
+
+```
+
+```{r message=FALSE, warning=FALSE}
+library(rgdal)
+shapefile_SP <- readOGR(dsn = "data/shapefiles/SP_Municipios", layer = "SP")
+
+tm_shape(shp = shapefile_SP) + tm_borders()
+```
+raster junto com shapefile:
+
+```{r}
+tm_shape(shp = relevo_sp) + 
+  tm_raster(style = "quantile", 
+            n = 5,
+            palette = "viridis") +
+  tm_shape(shp = shapefile_SP) + 
+  tm_borders() + 
+  tm_layout(legend.position = c("left", "bottom"), 
+            legend.outside = TRUE)
+```
+
+Para verificarmos se o objeto relevo_sp está aberto na RAM da máquina:
+
+```{r}
+inMemory(relevo_sp)
+```
+
+Forçar o carregamento na memória:
+```{r}
+mem_relevo_sp <- readAll(relevo_sp)
+```
+
+
+Recortando objetos raster com o mouse (deve ser rodado no modo itetativo):
+```{r}
+plot(mem_relevo_sp)
+recorte_mouse <- drawExtent()
+relevo_recortado <- crop(x = mem_relevo_sp, y = recorte_mouse)
+plot(relevo_recortado)
+```
+
+
+Recortando objetos raster com a determinação de vetores:
+
+```{r}
+recorte_coordenadas <- c(-45.51042, -45.18708, -23.95708, -23.74125)
+relevo_recortado <- crop(mem_relevo_sp, recorte_coordenadas)
+plot(relevo_recortado)
+```
+
