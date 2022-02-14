@@ -298,4 +298,11 @@ tm_shape(shp = shp_centro_oeste_dados) +
   tm_compass() +
   tm_layout(legend.outside = TRUE)
 ```
+Fazendo o mapa anterior, mas usando o ggplot, para isso convertemos o objeto shapefile em um dataframe gigante com cada ponto do que compõe todos poligonos:
+
+```{r}
+library(tidyverse)
+centro_oeste_poligonos_df = tidy(shp_centro_oeste_dados, region = "CD_GEOCODM") |>
+  rename(CD_GEOCODM)
+```
 
