@@ -192,7 +192,8 @@ Estamos verificando a correlação de uma variável contra ela mesma defasada es
 - Hipótese Nula: Não existe auto correlação global, ou seja, os valores do IDH são independentes dos vizinhos
 - Hipótese Alternativa: Há correlação. Valores do IDH são dependentes dos valores dos vizinhos
 
-Pergunta: o valor cálculado de I  (0.2328220224) é estatisticamente ao valor esperado de I (0.00155521)?
+Teste da Hipótese: o valor cálculado de I  (0.2328220224) é estatisticamente ao valor esperado de I (0.00155521)?
+Sim, eles são estatisticamente diferente e rejeitamos a hipótese nula.
 
 Valor esperado de I :
 ```{r}
