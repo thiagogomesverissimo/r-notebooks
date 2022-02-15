@@ -5,6 +5,8 @@ output:
     df_print: paged
 ---
 
+
+
 O pacote **measurements** permite converter latitude e longitude em radianos (graus, minutos, segundos) para decimal ou vice-versa.
 
 Por exemplo o bairro do Rio Pequeno em São Paulo latitude e longitude decimal: -23.5665987,-46.7586146.
@@ -47,6 +49,8 @@ Os arquivos shp, dbf, shx e prj devem estar em um único diretório e com o mesm
 Exemplo, no diretório **MG_Municipios** vamos ler os arquivos MG.shp, MG.dbf, MG.shx e MG.prj:
 
 ```{r message=FALSE, warning=FALSE}
+# Dependências Linux:
+# sudo apt install libgdal-dev libssl-dev libxml2-dev libudunits2-dev libprotobuf-dev protobuf-compiler libjq-dev
 library(rgdal)
 shapefile_MG <- readOGR(dsn = "data/shapefiles/MG_Municipios", layer = "MG")
 ```
@@ -262,13 +266,13 @@ tm_shape(shp = shapefile_guarulhos_e_osasco) +
   tm_text(text = "NM_MUN", size = 0.7)
 ```
 
-# Observando a base de dados do objeto shp_mercosul:
+Observando a base de dados do objeto shp_mercosul:
 
 ```{r}
 shapefile_guarulhos_e_osasco@data |> kable() |> kable_styling(bootstrap_options = "striped")
 ```
 
-## outro exemplo
+## Exemplo com centro-oeste brasileiro
 
 ```{r message=FALSE, warning=FALSE}
 library(rgdal)
@@ -277,7 +281,7 @@ shp_centro_oeste <- readOGR(dsn = "data/shapefiles/shapefile_centrooeste",
 dados_centro_oeste = read.csv("data/dados_centro_oeste.csv")
 ```
 
-merge:
+Adicioando os dados de pobreza no shapefile:
 ```{r}
 shp_centro_oeste_dados <- merge(x = shp_centro_oeste,
                                 y = dados_centro_oeste,
@@ -285,9 +289,12 @@ shp_centro_oeste_dados <- merge(x = shp_centro_oeste,
                                 by.y = "CD_GEOCODM")
 ```
 
-mapa:
+Vizualizando mapa:
 ```{r}
 library(tmap)
+
+tmap_mode("plot") # ou view
+
 tm_shape(shp = shp_centro_oeste_dados) + 
   tm_fill(col = "poverty", 
           style = "quantile", 
@@ -295,14 +302,178 @@ tm_shape(shp = shp_centro_oeste_dados) +
           palette = "viridis", 
           legend.hist = TRUE) +
   tm_borders(alpha = 0.8) +
+  #tm_text(text = "NM_MUNICIP", size = 0.4) +
   tm_compass() +
   tm_layout(legend.outside = TRUE)
 ```
+
 Fazendo o mapa anterior, mas usando o ggplot, para isso convertemos o objeto shapefile em um dataframe gigante com cada ponto do que compõe todos poligonos:
 
 ```{r}
 library(tidyverse)
-centro_oeste_poligonos_df = tidy(shp_centro_oeste_dados, region = "CD_GEOCODM") |>
-  rename(CD_GEOCODM)
+centro_oeste_poligonos_df = tidy(shp_centro_oeste, region = "CD_GEOCODM") |>
+  rename(CD_GEOCODM = id)
 ```
+
+Os dois primeiro digitos da coluna *CD_GEOCODM* corresponde aos estados:
+
+```{r}
+centro_oeste_poligonos_df$estado = substr(centro_oeste_poligonos_df$CD_GEOCODM,start=1,stop=2)
+
+centro_oeste_poligonos_df$estado = recode(centro_oeste_poligonos_df$estado,
+                                          "50" = "MS", "51" = "MT", "52" = "GO", "53"="DF")
+```
+
+Juntando com o dataframe de dados de pobreza:
+
+```{r}
+centro_oeste_poligonos_df =
+  centro_oeste_poligonos_df |> left_join(shp_centro_oeste_dados@data, by = "CD_GEOCODM")
+```
+
+Agora podemos plotar os poligonos usando ggplot e ggplotly para deixar iterativo:
+
+```{r}
+library(plotly)
+
+ggplotly(
+  centro_oeste_poligonos_df |>
+    ggplot() +
+    geom_polygon(aes(x=long,y=lat,fill=estado,label=city)) +
+    labs(x = "Longitude", y = "Latitude", fill = "estado") +
+    scale_fill_viridis_d(option = "viridis") +
+    theme_bw()
+)
+
+```
+
+
+## Estado de Santa Catarina
+
+Carregando dados da pobleza em csv e shapefile do estado de santa catarina:
+
+```{r}
+library(rgdal)
+
+shapefile_sc = readOGR("data/shapefiles/shapefile_sc", layer="sc_state", verbose=F)
+dados_sc = read.csv("data/pobreza_sc.csv")
+```
+
+
+Tranformando o shapefile de santa catarina em um dataframe:
+
+```{r}
+library(tidyverse)
+shapefile_sc_df = tidy(shapefile_sc, region="CD_GEOCMU") |> rename(CD_GEOCMU = id) 
+shapefile_sc_df$CD_GEOCMU = as.integer(shapefile_sc_df$CD_GEOCMU)
+```
+
+Juntando o dataframe oriundo do shapefile com os dados:
+
+```{r}
+shapefile_sc_df = left_join(shapefile_sc_df, dados_sc, by="CD_GEOCMU")
+```
+
+
+Gerando um mapa de polígonos com ggplot:
+
+```{r}
+shapefile_sc_df |>
+  ggplot(aes(x = long, y = lat, group = group, fill=poverty)) +
+  geom_polygon() 
+```
+
+Mesmo gráfico com mais detalhes:
+```{r}
+objeto_mapa_sc = 
+shapefile_sc_df |>
+  ggplot(aes(x = long, y = lat, group = group, fill=poverty)) +
+  geom_polygon() +
+  scale_fill_gradient(limits = range(shapefile_sc_df$poverty),
+                      low = "#FFF3B0", 
+                      high="#E09F3E") +
+  layer(geom = "path", 
+        stat = "identity", 
+        position = "identity",
+        mapping = aes(x = long, 
+                      y = lat, 
+                      group = group, 
+                      color = I('#FFFFFF'))) +
+  theme(legend.position = "none", 
+        axis.line = element_blank(), 
+        axis.text.x = element_blank(), 
+        axis.title.x = element_blank(),
+        axis.text.y = element_blank(), 
+        axis.title.y = element_blank(),
+        axis.ticks = element_blank(), 
+        panel.background = element_blank())
+objeto_mapa_sc
+```
+Salvando mapa em png:
+
+```{r}
+xlim <- ggplot_build(objeto_mapa_sc)$layout$panel_scales_x[[1]]$range$range
+ylim <- ggplot_build(objeto_mapa_sc)$layout$panel_scales_y[[1]]$range$range
+
+ggsave(filename = "/tmp/sc.png",
+       width = diff(xlim) * 4, 
+       height = diff(ylim) * 4, 
+       units = "cm")
+```
+
+Leitura do arquivo png:
+
+```{r}
+mapa_sc <- readPNG("/tmp/sc.png")
+```
+
+Calculando o centróide de cada poligono:
+
+```{r}
+coordenadas_sc = coordinates(shapefile_sc) |> 
+                 data.frame() |>
+                 rename(longitude=1,latitude=2) |>
+                 mutate(CD_GEOCMU = shapefile_sc@data$CD_GEOCMU)
+
+colnames(coordenadas_sc) = c("longitude_centroide","latitude_centroide","CD_GEOCMU")
+coordenadas_sc$CD_GEOCMU = as.integer(coordenadas_sc$CD_GEOCMU)
+```
+
+Adicionando uma coluna no shapefile que foi transformado em dataframe com a informação do contróide:
+
+```{r}
+shapefile_sc_df = left_join(shapefile_sc_df,coordenadas_sc, by = "CD_GEOCMU")
+```
+
+Plotando a imagem png com ggplot:
+
+```{r}
+shapefile_sc_df |>
+  ggplot() +
+  annotation_custom(
+    rasterGrob(background_mapa))
+```
+
+
+Georreferenciando a imagem PNG e plotando marcações sobre a pobreza em santa catatina nos centróides de cada polígono:
+
+
+
+```{r}
+shapefile_sc_df |>
+  ggplot() +
+  annotation_custom(
+    rasterGrob(mapa_sc,
+               width=unit(1,"npc"),
+               height=unit(1,"npc")),-Inf, Inf, -Inf, Inf) +
+  xlim(xlim[1],xlim[2]) + # x-axis Mapping
+  ylim(ylim[1],ylim[2]) + # y-axis Mapping
+  geom_point(aes(x = longitude_centroide, y = latitude_centroide, color = poverty), size = 1) +
+  scale_colour_gradient(name = "Poverty", 
+                      limits = range(shapefile_sc_df$poverty), 
+                      low = "#FCB9B2", 
+                      high = "#B23A48")
+```
+
+
 

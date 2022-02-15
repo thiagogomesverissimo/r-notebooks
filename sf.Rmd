@@ -96,3 +96,40 @@ tm_shape(shp = shapefile_SP) +
           size = 0.1, 
           alpha = 0.8)
 ```
+
+
+## terremotos na Oceania
+
+```{r}
+data(quakes)
+sf_terremotos <- st_as_sf(x = quakes, coords = c("long", "lat"), crs = 4326)
+```
+
+Mapa
+```{r}
+library(tmap)
+tmap_mode("view")
+tm_shape(sf_terremotos) + tm_dots(size=0.1,alpha=0.2)
+```
+
+Estratificação por tamanho:
+
+```{r}
+tmap_mode("plot")
+tm_shape(sf_terremotos) + tm_bubbles(scale = 1,size = "depth") +
+    tm_layout(legend.outside = TRUE)
+```
+
+estratificação por cor:
+```{r}
+tm_shape(sf_terremotos) + tm_dots(col = "depth",palette = "viridis") +
+    tm_layout(legend.outside = TRUE)
+```
+
+Filtrando magntudes maiores que 5:
+
+```{r}
+sf_terremotos |> 
+  filter(mag>5) |>
+  tm_shape() + tm_dots()
+```

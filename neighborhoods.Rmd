@@ -1,0 +1,214 @@
+---
+title: "neighborhoods"
+output: html_notebook
+---
+
+## vizinhanças por contiguidade
+
+Carregando shapefile de são paulo:
+```{r}
+library(rgdal)
+shp_sp <- readOGR(dsn = "data/shapefiles/SP_Municipios", layer = "SP", verbose = F)
+plot(shp_sp)
+```
+
+Critério queen de vizinhança:
+
+```{r}
+library(spdep)
+vizinhos_queen = poly2nb(pl = shp_sp, queen = TRUE,row.names = shp_sp@data$NM_MUN)
+
+plot(shp_sp, border = "lightgray")
+plot(vizinhos_queen, 
+     coordinates(shp_sp), 
+     add = TRUE, 
+     col = "#33638DFF")
+
+```
+Matriz W Binária:
+
+```{r}
+matrizW_queen <- nb2mat(neighbours = vizinhos_queen, style = "B", zero.policy = T)
+colnames(matrizW_queen) <- shp_sp@data$NM_MUN
+```
+
+Gerando uma lista com várias matrizes W, cada uma com contiguidades de ordem 1 até 5:
+```{r}
+vizinhos_queen_ordens <- nblag(neighbours = vizinhos_queen, maxlag = 5)
+```
+
+plot das vizinhanças com ordem 3:
+```{r}
+plot(shp_sp, border = "lightgray")
+plot(vizinhos_queen_ordens[[3]], 
+     coordinates(shp_sp), 
+     add = TRUE, 
+     col = "#33638DFF")
+```
+
+Estabelecendo vizinhanças por contiguidade, critério rook (torre, não pega diagonais):
+
+```{r}
+vizinhos_rook <- poly2nb(pl = shp_sp, queen = FALSE,row.names = shp_sp@data$NM_MUN)
+
+plot(shp_sp, border = "lightgray")
+plot(vizinhos_rook, 
+     coordinates(shp_sp), 
+     add = TRUE, 
+     col = "#95D840FF")
+```
+Matriz W
+
+```{r}
+matrizW_rook <- nb2mat(neighbours = vizinhos_rook, style = "B", zero.policy = TRUE)
+colnames(matrizW_rook) <- shp_sp@data$NM_MUN
+```
+
+## Vizinhanças por Distância Geográfica
+
+Shapefile do estado da Bahia:
+
+```{r}
+shp_ba <- readOGR(dsn = "data/shapefiles/shapefile_ba/", layer = "ba_state", encoding = "UTF-8", use_iconv = TRUE, verbose=F)
+```
+
+vizinhanças por distâncias geográficas (as distâncias serão calculadas em km):
+
+```{r message=FALSE, warning=FALSE}
+library(spdep)
+vizinhos_distancias <- dnearneigh(coordinates(shp_ba), d1 = 0, d2 = 90, longlat = TRUE)
+summary(vizinhos_distancias)
+```
+
+Vizualizando as distâncias:
+
+```{r}
+plot(shp_ba, border = "lightgray")
+plot(vizinhos_distancias, coordinates(shp_ba), col = "#CC6A70FF", add =T)
+```
+
+Matriz W:
+
+```{r}
+matrizW_distancias <- nb2mat(neighbours = vizinhos_distancias, style = "B")
+colnames(matrizW_distancias) <- shp_ba@data$MUNICIPIO
+rownames(matrizW_distancias) <- shp_ba@data$MUNICIPIO
+```
+
+## Vizinhanças Ponderadas por k-Nearest Neighbors
+
+```{r}
+library(rgdal)
+
+shp_sc = readOGR("data/shapefiles/shapefile_sc", layer="sc_state", verbose=F)
+```
+
+Obrigando cada municipio ter exatamente 3 vizinhos:
+
+```{r}
+lista_knear <- knearneigh(coordinates(shp_sc), longlat = TRUE, k = 3)
+vizinhos_knear <- knn2nb(knn = lista_knear)
+
+plot(shp_sc, border = "lightgray")
+plot(vizinhos_knear, coordinates(shp_sc), add = T, col = "#13306DFF")
+```
+
+Matriz Binária W:
+
+```{r}
+matrizW_knear  <- nb2mat(neighbours = vizinhos_knear, style = "B")
+colnames(matrizW_knear) <- shp_sc@data$NM_MUNICIP
+rownames(matrizW_knear) <- shp_sc@data$NM_MUNICIP
+```
+
+## Padronização em Linha da Matriz W
+
+```{r}
+matrizW_queen_linha <- nb2mat(vizinhos_queen, style = "W", zero.policy = T)
+colnames(matrizW_queen_linha) <- rownames(matrizW_queen_linha)
+```
+
+São paulo tem 23 vizinhos no método queen: 
+```{r}
+sum(matrizW_queen["São Paulo",])
+```
+
+Quando padronizamos por linha obrigamos a soma da linha dar 1:
+```{r}
+sum(matrizW_queen_linha["São Paulo",])
+```
+
+
+## Dupla Padronização da Matriz W 
+
+```{r}
+matrizW_queen_dupla_padr <- nb2mat(vizinhos_queen, style = "U", zero.policy = T)
+colnames(matrizW_queen_dupla_padr) <- rownames(matrizW_queen_dupla_padr)
+```
+
+Quando padronizamos duplamente a soma por linha não da mais 1:
+```{r}
+sum(matrizW_queen_dupla_padr["São Paulo",])
+```
+
+Mas a soma da matriz inteira da um:
+```{r}
+sum(matrizW_queen_dupla_padr)
+```
+
+## Padronização da Matriz W pela Estabilização da Variância
+
+```{r}
+matrizW_queen_est_var <- nb2mat(vizinhos_queen, style = "S", zero.policy = T)
+colnames(matrizW_queen_est_var) <- rownames(matrizW_queen_est_var)
+```
+
+Nesse caso a soma de matriz nos da a quantidade de municipios com vizinhos (ilha bela não tem vizinhos no método queen):
+```{r}
+sum(matrizW_queen_est_var)
+```
+
+## Autocorrelação Espacial para Matriz W
+
+Tipos:
+
+- Auto correlação global 
+- AUto correlação local (granularidade no nível da observação)
+
+Recuperando IDH de são Paulo e colocando no shapefile:
+```{r}
+sp = read.csv("data/sp.csv")
+shp_sp <- merge(x = shp_sp, y = sp, by.x = "CD_MUN", by.y = "codigo")
+```
+
+Para o cálculo da Estatística *I* de Moran, nosso algoritmo esperará como declaração um objeto de classe listw:
+
+```{r}
+listw_queen <- mat2listw(matrizW_queen)
+```
+
+Estamos verificando a correlação de uma variável contra ela mesma defasada espacialmente (ou seja, comparando com os vizinhos) em relação a uma determinada observação:
+
+- Hipótese Nula: Não existe auto correlação global, ou seja, os valores do IDH são independentes dos vizinhos
+- Hipótese Alternativa: Há correlação. Valores do IDH são dependentes dos valores dos vizinhos
+
+Pergunta: o valor cálculado de I  (0.2328220224) é estatisticamente ao valor esperado de I (0.00155521)?
+
+Valor esperado de I :
+```{r}
+-1/(644-1)
+```
+
+Como p-value = 6.695e-10 rejeitamos a hipótese nula e a estatsitica *I* de autocorrelação global é: 0.2328220224 - ou seja, existe autocorrelação global e ela é positiva
+
+```{r}
+moran.test(x = shp_sp@data$idh, listw = listw_queen, zero.policy = T)
+```
+
+O Diagrama da Estatística *I* de Moran:
+
+```{r}
+moran.plot(x = shp_sp@data$idh, listw = listw_queen, zero.policy = TRUE, xlab = "IDH", 
+           ylab = "IDH Espacialmente Defasado",pch = 19)
+```
+
