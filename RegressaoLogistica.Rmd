@@ -1,6 +1,8 @@
 ---
-title: "Regressão Logística "
-output: html_notebook
+title: 'Regressão Logística '
+output:
+  html_document:
+    df_print: paged
 ---
 
 ## Regressão Logística Binária
