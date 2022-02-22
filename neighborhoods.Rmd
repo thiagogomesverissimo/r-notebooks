@@ -1,6 +1,8 @@
 ---
 title: "neighborhoods"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 ## vizinhanças por contiguidade
@@ -11,6 +13,12 @@ library(rgdal)
 library(tidyverse)
 shp_sp <- readOGR(dsn = "data/shapefiles/SP_Municipios", layer = "SP", verbose = F)
 plot(shp_sp)
+```
+
+Olhando os pontos abaixo qual critério de vizinhança escolheríamos?
+
+```{r}
+tm_shape(shp = shp_sp) +  tm_dots(col = "#39568CFF", size = 0.08)
 ```
 
 Critério queen de vizinhança:
@@ -26,6 +34,7 @@ plot(vizinhos_queen,
      col = "#33638DFF")
 
 ```
+
 Matriz W Binária:
 
 ```{r}
@@ -226,7 +235,7 @@ Como p-value = 6.695e-10 rejeitamos a hipótese nula e a estatsitica *I* de auto
 moran.test(x = shp_sp@data$idh, listw = listw_queen, zero.policy = T)
 ```
 
-O Diagrama da Estatística *I* de Moran:
+O Diagrama da Estatística *I* de Moran  é um plano cartesiano, em que no eixo X constará a variável de interesse; e no eixo Y, a variável de interesse defasada espacialmente:
 
 ```{r}
 moran.plot(x = shp_sp@data$idh, listw = listw_queen, zero.policy = TRUE, 
@@ -236,7 +245,7 @@ Interpretação:
 
 - As linhas que dividem os quadrantes são as médias de IDH em cada eixo
 - Como estamos trabalhando com a matriz de contigunidade, ilha bela não tem viznho, por isso ele está destacado com o simbolo diferente no diagrama.
-- São paulo está no quadrante High-High, ou seja, tem similaridade (transbordamento espacial) e tem valores alto da variável de interesse, IDH, com vizinho que também tem IDH alto 
+- São paulo está no quadrante High-High, ou seja, verifica-se a existência de padrões espaciais de similaridade. (transbordamento espacial) e tem valores alto da variável de interesse, IDH, com vizinho que também tem IDH alto (Ao se diagnosticar a autocorrelação espacial global positiva, verificam-se indícios do efeito de spill over (transbordademento), isto é, a influência direta de observações vizinhas a respeito do fenômeno estudado em uma observação de referência.)
 - àguas de são pedro  está no quadrante  High-Low e possui valores altos de IDH com vizinho com valores baixos
 - Riversul está no quadrante Low-Low e tem similaridade (transbordamento espacial) e tem valores baixo da variável de interesse, IDH, com vizinhos que também tem IDH baixo 
 - Ibiuna está no quadrante Low-High e possui valores baixo de IDH com vizinhos com valores altos
@@ -267,7 +276,14 @@ plotly::ggplotly(
 
 ## Auto correlação local 
 
-1) devemos padronizar a matriz W em linha:
+
+Estatística Local Moran:
+
+- Com ela, é possível classificar as observações em quadrantes High-High, Low-Low, High-Low e Low-High em razão de suas significâncias estatísticas.
+- É uma métrica de autocorrelação local.
+- Mede autocorrelações das observações uma a uma em relação a sua vizinhança estabelecida pela matriz de defasagem espacial W. 
+
+Devemos padronizar a matriz W em linha:
 ```{r}
 matrizW_queen_linha <- nb2mat(vizinhos_queen, style = "W",zero.policy = T)
 colnames(matrizW_queen_linha) = rownames(matrizW_queen_linha)
@@ -280,7 +296,7 @@ moran_local <- localmoran(x = shp_sp@data$idh, listw = listw_queen, zero.policy 
 ```
 
 - Cluster Espaciais: O pontos com Moran Local estatisticamente significantes e que estejam em High-High ou Low-Low
-- Outluers Espacial: O pontos com Moran Local estatisticamente significantes e que estejam em High-Low ou Low-High
+- Outliers Espacial: O pontos com Moran Local estatisticamente significantes e que estejam em High-Low ou Low-High
 
 ```{r}
 idh_zscore = scale(shp_sp@data$idh)
@@ -353,64 +369,70 @@ tm_shape(shp = moran_local_mapa) +
   tm_borders()
 ```
 
+## Autocorrelação Local -  A Estatística G de Getis e Ord 
 
 
-# Versão do gráfico anterior para daltônicos:
 
+Recarregando dados da Bahia:
 
-# 05) Autocorrelação Local -  A Estatística G de Getis e Ord --------------
+```{r message=FALSE, warning=FALSE}
+library(rgdal)
+library(tidyverse)
+library(spdep)
 
-# A Estatística G de Getis e Ord, por definição, espera uma matriz espacial
-# W de distâncias geográficas. Utilizaremos o objeto matrizW_distancias.
+shp_ba <- readOGR(dsn = "data/shapefiles/shapefile_ba/", layer = "ba_state", 
+                  encoding = "UTF-8", use_iconv = TRUE, verbose=F)
+vizinhos_distancias <- dnearneigh(coordinates(shp_ba), d1 = 0, d2 = 90, longlat = TRUE)
+matrizW_distancias <- nb2mat(neighbours = vizinhos_distancias, style = "B")
 
-# Lembre-se de que o objeto matrizW_distancias foi calculado em razão de um
-# shapefile do Estado da Bahia!
+colnames(matrizW_distancias) <- shp_ba@data$MUNICIPIO
+rownames(matrizW_distancias) <- shp_ba@data$MUNICIPIO
 
-# Vamos importar os dados de IDH dos municípios da Bahia:
-load("dados_ba.RData")
+idh_bahia = read.csv("data/idh_bahia.csv")
+```
 
-# Vamos adicionar os dados carregados ao nosso shapefile:
-shp_ba@data %>% 
-  left_join(dados_ba, by = "Codigo") ->shp_ba@data
+Adicionando dados de IDH da bahia ao shapefile:
 
-# Um último ajuste é a transformação do objeto matrizW_distancias em um
-# objeto de classe listw:
+```{r}
+idh_bahia$Codigo = as.character(idh_bahia$Codigo)
+shp_ba@data = shp_ba@data |> left_join(idh_bahia, by = "Codigo")
+```
+
+Transformação do objeto matrizW_distancias em um objeto de classe listw:
+
+```{r}
 listw_dist <- mat2listw(x = matrizW_distancias)
+```
 
-# Calculando a Estatística G de Getis e Ord:
-g_local <- localG(x = shp_ba@data$idh,
-                  listw = listw_dist)
+Calculando a Estatística G de Getis e Ord:
 
-# Juntando as informações do objeto g_local ao nosso shapefile:
+```{r}
+g_local <- localG(x = shp_ba@data$idh, listw = listw_dist)
+```
+
+Juntando as informações do objeto g_local ao nosso shapefile:
+
+```{r}
 mapa_G <- cbind(shp_ba, as.matrix(g_local)) 
+mapa_G@data = mapa_G@data |> rename(estistica_g = 4)
+```
 
-head(mapa_G@data)
 
-# Renomeando a nova variável para facilitar:
-mapa_G@data %>% 
-  rename(estistica_g = 4) -> mapa_G@data
+Plotando a Estatística G de forma espacial:
 
-# Plotando a Estatística G de forma espacial:
+```{r message=FALSE, warning=FALSE}
+library(tmap)
 tm_shape(mapa_G) + 
-  tm_fill("estistica_g", 
-          palette = "-viridis") + 
+  tm_fill("estistica_g", palette = "-RdBu") + 
   tm_borders()
+```
+Estradificação por 8 e melhorado para daltônicos:
 
-# Mais uma vez, o erro a respeito da quantidade de cores. Vamos ajustar:
-mapa_G@data <- mapa_G@data %>% 
-  mutate(faixa_quantis = factor(quantcut(x = estistica_g, q = 8))) 
+```{r}
+library(gtools)
+mapa_G@data = mapa_G@data |> mutate(faixa_quantis = factor(quantcut(x = estistica_g, q = 8))) 
 
-# Plotando a Estatística G de forma espacial (versão 'default'):
 tm_shape(mapa_G) + 
-  tm_fill("faixa_quantis", 
-          palette = "-RdBu") + 
+  tm_fill("faixa_quantis", palette = "plasma") + 
   tm_borders()
-
-# Versão do gráfico anterior para daltônicos>
-tm_shape(mapa_G) + 
-  tm_fill("faixa_quantis", 
-          palette = "plasma") + 
-  tm_borders()
-
-# FIM ---------------------------------------------------------------------
-
+```
