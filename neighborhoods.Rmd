@@ -8,6 +8,7 @@ output: html_notebook
 Carregando shapefile de são paulo:
 ```{r}
 library(rgdal)
+library(tidyverse)
 shp_sp <- readOGR(dsn = "data/shapefiles/SP_Municipios", layer = "SP", verbose = F)
 plot(shp_sp)
 ```
@@ -57,7 +58,8 @@ plot(vizinhos_rook,
      add = TRUE, 
      col = "#95D840FF")
 ```
-Matriz W
+
+Matriz W do critério rook:
 
 ```{r}
 matrizW_rook <- nb2mat(neighbours = vizinhos_rook, style = "B", zero.policy = TRUE)
@@ -147,11 +149,13 @@ colnames(matrizW_queen_dupla_padr) <- rownames(matrizW_queen_dupla_padr)
 ```
 
 Quando padronizamos duplamente a soma por linha não da mais 1:
+
 ```{r}
 sum(matrizW_queen_dupla_padr["São Paulo",])
 ```
 
 Mas a soma da matriz inteira da um:
+
 ```{r}
 sum(matrizW_queen_dupla_padr)
 ```
@@ -164,6 +168,7 @@ colnames(matrizW_queen_est_var) <- rownames(matrizW_queen_est_var)
 ```
 
 Nesse caso a soma de matriz nos da a quantidade de municipios com vizinhos (ilha bela não tem vizinhos no método queen):
+
 ```{r}
 sum(matrizW_queen_est_var)
 ```
@@ -174,6 +179,9 @@ Tipos:
 
 - Auto correlação global 
 - AUto correlação local (granularidade no nível da observação)
+
+
+## Auto correlação global 
 
 Recuperando IDH de são Paulo e colocando no shapefile:
 ```{r}
@@ -200,7 +208,19 @@ Valor esperado de I :
 -1/(644-1)
 ```
 
-Como p-value = 6.695e-10 rejeitamos a hipótese nula e a estatsitica *I* de autocorrelação global é: 0.2328220224 - ou seja, existe autocorrelação global e ela é positiva
+Estatística I de moran:
+
+```{r}
+idhs = shp_sp@data$idh
+idhs_scale = scale(idhs)
+I = (t(idhs_scale) %*% matrizW_queen %*%  idhs_scale /
+    t(idhs_scale) %*% idhs_scale) *
+  ( (length(idhs)-1)/sum(matrizW_queen) )
+I
+```
+
+
+Como p-value = 6.695e-10 rejeitamos a hipótese nula e a estatsitica *I* de autocorrelação global é: 0.2328220224 - ou seja, existe autocorrelação global e ela é positiva.
 
 ```{r}
 moran.test(x = shp_sp@data$idh, listw = listw_queen, zero.policy = T)
@@ -209,7 +229,54 @@ moran.test(x = shp_sp@data$idh, listw = listw_queen, zero.policy = T)
 O Diagrama da Estatística *I* de Moran:
 
 ```{r}
-moran.plot(x = shp_sp@data$idh, listw = listw_queen, zero.policy = TRUE, xlab = "IDH", 
-           ylab = "IDH Espacialmente Defasado",pch = 19)
+moran.plot(x = shp_sp@data$idh, listw = listw_queen, zero.policy = TRUE, 
+           xlab = "IDH", ylab = "IDH Espacialmente Defasado")
 ```
+Interpretação:
+
+- As linhas que dividem os quadrantes são as médias de IDH em cada eixo
+- Como estamos trabalhando com a matriz de contigunidade, ilha bela não tem viznho, por isso ele está destacado com o simbolo diferente no diagrama.
+- São paulo está no quadrante High-High, ou seja, tem similaridade (transbordamento espacial) e tem valores alto da variável de interesse, IDH, com vizinho que também tem IDH alto 
+- àguas de são pedro  está no quadrante  High-Low e possui valores altos de IDH com vizinho com valores baixos
+- Riversul está no quadrante Low-Low e tem similaridade (transbordamento espacial) e tem valores baixo da variável de interesse, IDH, com vizinhos que também tem IDH baixo 
+- Ibiuna está no quadrante Low-High e possui valores baixo de IDH com vizinhos com valores altos
+
+Diagrama de Moran com ggplot:
+
+```{r}
+idh_defasada = lag.listw(x=listw_queen, var=shp_sp@data$idh,zero.policy = T)
+
+df = data.frame(cidade = shp_sp@data$NM_MUN, idh=shp_sp@data$idh,idh_defasada)
+df["idh_defasada_na_unha"] = matrizW_queen %*% shp_sp@data$idh
+
+plotly::ggplotly(
+  df |>
+    ggplot(aes(label=cidade)) +
+    geom_point(aes(x=idh,y=idh_defasada), alpha=0.5,size=3) +
+    geom_smooth(aes(x=idh,y=idh_defasada), method="lm", se=F) +
+    geom_hline(yintercept = mean(df$idh_defasada),lty=2) +
+    geom_vline(xintercept = mean(df$idh),lty=2) +
+    annotate("text", x=0.66, y=18.5, label="Low-High") +
+    annotate("text", x=0.84, y=18.5, label="High-High") + 
+    annotate("text", x=0.66, y=-1, label="Low-Low") + 
+    annotate("text", x=0.84, y=-1, label="High-Low") + 
+    theme_bw()
+)
+```
+
+
+## Auto correlação local 
+
+1) devemos padronizar a matriz W em linha:
+```{r}
+matrizW_queen_linha <- nb2mat(vizinhos_queen, style = "W",zero.policy = T)
+colnames(matrizW_queen_linha) = rownames(matrizW_queen_linha)
+listw_queen <- mat2listw(matrizW_queen_linha)
+```
+
+Estatística Moran Local com o uso da função localmoran:
+```{r}
+moran_local <- localmoran(x = shp_sp@data$idh, listw = listw_queen, zero.policy = T)
+```
+
 
