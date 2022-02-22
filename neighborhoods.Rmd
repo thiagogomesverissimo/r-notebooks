@@ -279,4 +279,138 @@ Estatística Moran Local com o uso da função localmoran:
 moran_local <- localmoran(x = shp_sp@data$idh, listw = listw_queen, zero.policy = T)
 ```
 
+- Cluster Espaciais: O pontos com Moran Local estatisticamente significantes e que estejam em High-High ou Low-Low
+- Outluers Espacial: O pontos com Moran Local estatisticamente significantes e que estejam em High-Low ou Low-High
+
+```{r}
+idh_zscore = scale(shp_sp@data$idh)
+moran_local_na_unha = rowSums(sweep(x=matrizW_queen_linha,MARGIN=2,STATS = idh_zscore, FUN = "*"))*idh_zscore
+```
+
+Juntando os resultados da Estatística Moran Local no dataset do objeto shp_sp:
+```{r}
+moran_local_mapa <- cbind(shp_sp, moran_local)
+```
+
+```{r}
+library(gtools)
+library(tmap)
+quantile(moran_local_mapa@data$Ii, type = 5, probs = c(0,0.2,0.4,0.6,0.8))
+
+moran_local_mapa@data <- moran_local_mapa@data %>% 
+  mutate(faixa_quantis = factor(quantcut(x = Ii, q = 5))) 
+
+tm_shape(shp = moran_local_mapa) +
+  tm_fill(col = "faixa_quantis", palette = "-magma") +
+  tm_borders()
+```
+
+Considerando os quadrantes:
+
+```{r}
+moran_local_mapa <- cbind(moran_local_mapa, 
+                          attr(x = moran_local, which = "quadr")[1])
+
+tm_shape(shp = moran_local_mapa) +
+  tm_fill(col = "mean", palette = "-viridis") +
+  tm_borders(col = "gray")
+
+```
+
+Criando um vetor que contenha o centro das observações da variável idh ao redor de sua média:
+
+```{r}
+quadrantes <- vector(mode = "numeric", length = nrow(moran_local))
+centro_idh <- shp_sp@data$idh - mean(shp_sp@data$idh)
+centro_moran_local <- moran_local[,1] - mean(moran_local[,1])
+```
+
+Vamos manter na base somente os I locais significantes.
+Enquadrando nossas observações em seus respectivos quadrantes:
+```{r}
+sig <- 0.05
+quadrantes[centro_idh > 0 & centro_moran_local > 0] <- "HH"
+quadrantes[centro_idh > 0 & centro_moran_local < 0] <- "HL"
+quadrantes[centro_idh < 0 & centro_moran_local > 0] <- "LH"
+quadrantes[centro_idh < 0 & centro_moran_local < 0] <- "LL"
+```
+
+Ajustando a presença da observação em razão de sua significância estatística:
+```{r}
+quadrantes[moran_local[,5] > sig] <- "Estatisticamente_não_significante"
+moran_local_mapa@data["quadrantes"] <- factor(quadrantes)
+```
+
+Plotando os quadrantes de forma espacial (versão 'default'):
+```{r}
+tm_shape(shp = moran_local_mapa) +
+  tm_polygons(col = "quadrantes", 
+              pal = c(HH = "darkred",
+                      HL = "red", 
+                      LH = "lightblue", 
+                      LL = "darkblue",
+                      Estatisticamente_não_significante = "white")) +
+  tm_borders()
+```
+
+
+
+# Versão do gráfico anterior para daltônicos:
+
+
+# 05) Autocorrelação Local -  A Estatística G de Getis e Ord --------------
+
+# A Estatística G de Getis e Ord, por definição, espera uma matriz espacial
+# W de distâncias geográficas. Utilizaremos o objeto matrizW_distancias.
+
+# Lembre-se de que o objeto matrizW_distancias foi calculado em razão de um
+# shapefile do Estado da Bahia!
+
+# Vamos importar os dados de IDH dos municípios da Bahia:
+load("dados_ba.RData")
+
+# Vamos adicionar os dados carregados ao nosso shapefile:
+shp_ba@data %>% 
+  left_join(dados_ba, by = "Codigo") ->shp_ba@data
+
+# Um último ajuste é a transformação do objeto matrizW_distancias em um
+# objeto de classe listw:
+listw_dist <- mat2listw(x = matrizW_distancias)
+
+# Calculando a Estatística G de Getis e Ord:
+g_local <- localG(x = shp_ba@data$idh,
+                  listw = listw_dist)
+
+# Juntando as informações do objeto g_local ao nosso shapefile:
+mapa_G <- cbind(shp_ba, as.matrix(g_local)) 
+
+head(mapa_G@data)
+
+# Renomeando a nova variável para facilitar:
+mapa_G@data %>% 
+  rename(estistica_g = 4) -> mapa_G@data
+
+# Plotando a Estatística G de forma espacial:
+tm_shape(mapa_G) + 
+  tm_fill("estistica_g", 
+          palette = "-viridis") + 
+  tm_borders()
+
+# Mais uma vez, o erro a respeito da quantidade de cores. Vamos ajustar:
+mapa_G@data <- mapa_G@data %>% 
+  mutate(faixa_quantis = factor(quantcut(x = estistica_g, q = 8))) 
+
+# Plotando a Estatística G de forma espacial (versão 'default'):
+tm_shape(mapa_G) + 
+  tm_fill("faixa_quantis", 
+          palette = "-RdBu") + 
+  tm_borders()
+
+# Versão do gráfico anterior para daltônicos>
+tm_shape(mapa_G) + 
+  tm_fill("faixa_quantis", 
+          palette = "plasma") + 
+  tm_borders()
+
+# FIM ---------------------------------------------------------------------
 
