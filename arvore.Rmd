@@ -1,0 +1,234 @@
+---
+title: "árvore"
+output: html_notebook
+---
+
+```{r}
+data = read.csv("data/titanic.csv")
+
+data$Survived = as.factor(data$Survived)
+data$Survived = relevel(data$Survived, ref="N")
+
+data$Pclass = as.factor(data$Pclass)
+data$Sex = as.factor(data$Sex)
+data$Embarked = as.factor(data$Embarked)
+```
+
+Descritiva:
+
+```{r}
+library(Rmisc)
+data$survived <- as.integer(data$Survived=="Y")
+data_summary_sex = summarySE(data, measurevar="survived", groupvars=c("Sex"))
+data_summary_sex
+```
+
+Por sexo:
+
+```{r}
+library(tidyverse)
+ ggplot(data_summary_sex) + 
+   geom_bar(aes(x=Sex, fill=as.factor(Sex), weight = N/nrow(data),)) +
+    geom_errorbar(aes(x=Sex, y=survived, ymin=survived-se, ymax=survived+se, colour='1'), width=.1) +
+   
+    geom_point(aes(x=Sex, y=survived, colour='1', group='1')) +
+    geom_line(aes(x=Sex, y=survived, colour='1', group='1')) +
+    
+    scale_color_viridis_d(direction = -1, begin=0, end=.25) +
+    scale_fill_viridis_d(direction = -1, begin=.85, end=.95) +
+    
+    theme(panel.background = element_rect(fill = "white", colour = "grey", linetype = "solid"),
+          panel.grid.major = element_line(size = 0.15, linetype = 'solid', colour = "grey")) + 
+   
+    theme(legend.position = "none") +
+    xlab("Sexo") + 
+    ylab("Taxa de sobreviventes") +
+    scale_y_continuous(sec.axis = sec_axis(~ . * nrow(data) , name = "Frequência"), labels = scales::percent)
+```
+
+
+Por idade:
+```{r}
+library(Rmisc)
+library(tidyverse)
+library(gtools)
+
+data$quant_idade <- quantcut(data$Age, 5)
+data_summary_idade = summarySE(data, measurevar="survived", groupvars=c("quant_idade"))
+data_summary_idade
+
+ggplot(data_summary_idade) + 
+  geom_bar(aes(x=quant_idade, fill=as.factor(quant_idade), weight = N/nrow(data),)) +
+  geom_errorbar(aes(x=quant_idade, y=survived, ymin=survived-se, ymax=survived+se, colour='1'), width=.1) +
+ 
+  geom_point(aes(x=quant_idade, y=survived, colour='1', group='1')) +
+  geom_line(aes(x=quant_idade, y=survived, colour='1', group='1')) +
+  
+  scale_color_viridis_d(direction = -1, begin=0, end=.25) +
+  scale_fill_viridis_d(direction = -1, begin=.85, end=.95) +
+  
+  theme(panel.background = element_rect(fill = "white", colour = "grey", linetype = "solid"),
+        panel.grid.major = element_line(size = 0.15, linetype = 'solid', colour = "grey")) + 
+ 
+  theme(legend.position = "none") +
+  xlab("Idades") + 
+  ylab("Taxa de sobreviventes") +
+  scale_y_continuous(sec.axis = sec_axis(~ . * nrow(data) , name = "Frequência"), labels = scales::percent)
+```
+
+árvore:
+
+```{r}
+library(rpart)
+arvore <- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked,
+                data=data,
+                parms = list(split = 'gini'),
+                method='class'
+)
+paleta = scales::viridis_pal(begin=.75, end=1)(20)
+rpart.plot::rpart.plot(arvore, box.palette = paleta) 
+```
+
+- probabilidade de sobrevivência global: 38%
+- probabilidade de sobrevivência de homens: 19%
+- probabilidade de sobrevivência de homens com menos de 6,5 anos: 67%
+
+## dividindo a base em treino e teste
+
+```{r}
+set.seed(123)
+treino_bool <- stats::runif(dim(data)[1])>.25
+
+treino <- data[treino_bool,]
+teste  <- data[!treino_bool,]
+```
+
+árvove "livre" permite uma obsevação nos nós ou folhas e tem custo cp zero (permite overfitting):
+
+```{r}
+arvore <- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked,
+                data=treino,
+                parms = list(split = 'gini'),
+                method='class',
+                xval=5,
+                control = rpart.control(cp = 0, minsplit = 1, maxdepth = 30)
+)
+arvore$variable.importance
+```
+
+predição:
+
+```{r message=FALSE, warning=FALSE}
+library(caret)
+previsto = stats::predict(arvore, teste)
+
+previsto = as.data.frame(previsto)
+teste = cbind(teste,previsto)
+
+previsto$SurvivedPredicted = "N"
+previsto[previsto[,2] > 0.5,]$SurvivedPredicted = "Y"
+
+teste = cbind(teste,SurvivedPredicted = previsto$SurvivedPredicted)
+teste$SurvivedPredicted = as.factor(teste$SurvivedPredicted)
+teste$SurvivedPredicted = relevel(teste$SurvivedPredicted , ref="N")
+
+confusionMatrix(teste$SurvivedPredicted, teste$Survived, positive="N")
+```
+
+ROC:
+
+```{r}
+library(caret)
+rocdata = data.frame(obs=teste$Survived, 
+                     pred=teste$SurvivedPredicted, 
+                     Y = teste$Y, 
+                     N = teste$N)
+
+twoClassSummary(rocdata, lev=levels(rocdata$obs))
+```
+
+Curva ROC:
+
+```{r}
+library(plotROC)
+ggplot(rocdata, aes(d = obs, m = Y, colour='a')) + 
+  plotROC::geom_roc(n.cuts = 0) +
+  scale_color_viridis_d(direction = -1, begin=0, end=.25) +
+  theme(legend.position = "none") +
+  ggtitle("Curva ROC")
+```
+
+## pós-poda (Grid Search)
+
+Dividimos a base de treino em k pedaços (k-fold) e recursivamente fixando um valor de cp testamos um pedaço como sendo validação e os demais k-1 como treino. Todos pedaços k são considerados como validação em algum momento e depois fazemos a média de uma métrica de desempenho, como por exemplo a acurácia. Testamos esse procedimento para diversos CP e procuramos o menor: 
+
+```{r}
+poda = rpart::printcp(arvore)
+poda
+```
+
+```{r}
+plotcp(arvore)
+```
+
+```{r}
+cp_min <- poda[which.min(poda[,'xerror']),'CP']
+cp_min
+```
+
+Dado que temos o menor CP recosntruímos a árvore:
+
+```{r}
+set.seed(123)
+arvore_poda <- rpart::rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked,
+                            data=treino,
+                            method='class',
+                            xval=0,
+                            control = rpart.control(cp = cp_min, 
+                                                    minsplit = 1, 
+                                                    maxdepth = 30)
+)
+```
+
+predição:
+
+```{r message=FALSE, warning=FALSE}
+library(caret)
+previsto = stats::predict(arvore_poda, teste)
+
+previsto = as.data.frame(previsto)
+teste = cbind(teste,previsto)
+
+previsto$SurvivedPredicted = "N"
+previsto[previsto[,2] > 0.5,]$SurvivedPredicted = "Y"
+
+teste = cbind(teste,SurvivedPredicted = previsto$SurvivedPredicted)
+teste$SurvivedPredicted = as.factor(teste$SurvivedPredicted)
+teste$SurvivedPredicted = relevel(teste$SurvivedPredicted , ref="N")
+
+confusionMatrix(teste$SurvivedPredicted, teste$Survived, positive="N")
+```
+área ROC:
+
+ROC:
+
+```{r}
+library(caret)
+rocdata = data.frame(obs=teste$Survived, 
+                     pred=teste$SurvivedPredicted, 
+                     Y = teste$Y, 
+                     N = teste$N)
+
+twoClassSummary(rocdata, lev=levels(rocdata$obs))
+```
+
+Curva ROC:
+
+```{r}
+library(plotROC)
+ggplot(rocdata, aes(d = obs, m = Y, colour='a')) + 
+  plotROC::geom_roc(n.cuts = 0) +
+  scale_color_viridis_d(direction = -1, begin=0, end=.25) +
+  theme(legend.position = "none") +
+  ggtitle("Curva ROC")
+```
