@@ -14,6 +14,57 @@ data$Sex = as.factor(data$Sex)
 data$Embarked = as.factor(data$Embarked)
 ```
 
+
+Cálculo da impureza com Gini para o nó raiz:
+
+```{r}
+tab = table(data$Survived) # Y=549 N=342 
+
+pY = tab[1]/nrow(data)
+pN = tab[2]/nrow(data)
+
+gini_raiz = 1 - (pY^2 + pN^2)
+gini_raiz
+```
+
+Cálculo da impureza com Gini para o nó da variável sexo:
+
+```{r}
+male = data[data$Sex == 'male',]
+female = data[data$Sex == 'female',]
+
+# male
+tab = table(male$Survived) # Y=549 N=342 
+pY = tab[1]/nrow(male)
+pN = tab[2]/nrow(male)
+gini_male = 1 - (pY^2 + pN^2)
+
+# female
+tab = table(female$Survived) # Y=549 N=342 
+pY = tab[1]/nrow(female)
+pN = tab[2]/nrow(female)
+gini_female = 1 - (pY^2 + pN^2)
+
+# média ponderada do Gini
+
+gini_sexo = (gini_male*nrow(male) + gini_female*nrow(female))/nrow(data)
+gini_sexo
+```
+
+Teríamos que calcular o Gini para cada variável e então escolher a quebra na variável de menor Gini (impureza).
+
+O Gini varia de 0 até 0,5, sendo zero a impureza minima (overfitting, acertamos tudo) e 0.5 erramos tudo.
+
+```{r}
+p = data.frame(p1 = seq(0,1, length=100))
+p$p2 = 1- p$p1
+p$gini = 1 - (p$p1^2 + p$p2^2)
+plot(p$p1, p$gini)
+```
+
+A entropia é um parâmetro parecido como o Gini 
+
+
 Descritiva:
 
 ```{r}
