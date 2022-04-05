@@ -1,0 +1,40 @@
+---
+title: "Deep Learning"
+output: html_notebook
+---
+
+Pacotes:
+
+```{r}
+library("MASS")
+library("rpart")
+set.seed(0)
+```
+
+Vamos tentar prever o valor media de uma casa baseados das features disponíveis no dataset: 
+Boston Housing Values in Suburbs of Boston
+
+```{r}
+data = Boston
+data[is.na(data) == TRUE]
+head(data)
+```
+
+Separando entre treinamento e teste:
+
+```{r}
+quebra = 0.8 * nrow(data)
+train <- data.frame(data[1:quebra,])
+test <- data.frame(data[(1+quebra): nrow(data),])
+```
+
+árvore de decisão (anova para regressão e class para classificação):
+```{r}
+arvore <- rpart(medv ~.,method="anova", data=train)
+tree_predict <- predict(arvore,test)
+mse_tree <- mean((tree_predict - test$medv)^2)
+mse_tree
+```
+
+
+

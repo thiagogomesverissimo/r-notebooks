@@ -35,3 +35,8 @@ data_saude = data |> filter(str_detect(topico,"^Health"))
 ```
 
 Mudando o formato da tabela para wide (observações em linha e variáveis em colunas):
+
+```{r}
+data_saude_wider = pivot_wider(data_saude, id_cols = c("pais","cod_pais"), names_from="serie", values_from = "ano_2019")
+```
+
