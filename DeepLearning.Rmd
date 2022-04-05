@@ -1,6 +1,8 @@
 ---
 title: "Deep Learning"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 Pacotes:
@@ -36,5 +38,138 @@ mse_tree <- mean((tree_predict - test$medv)^2)
 mse_tree
 ```
 
+Normalizando segundo  x-min/(max-min), para diminuir a intensidade dos ruídos:
 
+```{r}
+set.seed(0)
+maior_de_cada_coluna = apply(data, 2, max) 
+menor_de_cada_coluna = apply(data, 2, min)
+diff = maior_de_cada_coluna - menor_de_cada_coluna
+scaled <- scale(data, center = menor_de_cada_coluna, scale = diff)
+```
 
+Separando treinamento e teste de forma aleatória:
+
+```{r}
+set.seed(0)
+index = sample(1:nrow(data),round(0.70*nrow(data)))
+train_data <- as.data.frame(scaled[index,])
+test_data <- as.data.frame(scaled[-index,])
+```
+
+Rede neural:
+
+```{r}
+library(neuralnet)
+nn <- neuralnet(medv~.,data=train_data,hidden=c(5,4,3,2),linear.output=T)
+plot(nn)
+```
+
+hidden: vector of integers specifying the number of hidden neurons (vertices) in each layer.
+hidden=c(5,4,3,2): 
+
+- Na primeira camada escondida 5 neurônios
+- Na segunda camada escondida 4 neurônios
+- Na terceira camada escondida 3 neurônios 
+- Na quarta camada escondida 2 neurônios 
+
+Previsão é com a função compute (e não com predict) e temos que desfazer o scale para compararmos com a variável original:
+
+```{r}
+pr.nn <- compute(nn,test_data[,1:13])
+pr.nn_ <- pr.nn$net.result*(max(data$medv)-min(data$medv))+min(data$medv)
+test.r <- (test_data$medv)*(max(data$medv)-min(data$medv))+min(data$medv)
+```
+
+Calculando erro quadrático médio:
+
+```{r}
+MSE_nn <- mean((pr.nn_ - test.r)^2)
+MSE_nn
+```
+Plot do observado versus predito:
+
+```{r}
+plot(test_data$medv,type = 'l',col="red",xlab = "x", ylab = "Valor Residencia")
+lines(pr.nn$net.result,col = "blue")
+```
+## exemplo de rede neural com classificação
+
+Vamos prever a variável Private, que indica se a universidade é pública ou privada.
+
+```{r}
+library(ISLR)
+library(neuralnet)
+data <- College
+private <- ifelse(data$Private == 'Yes', 1, 0)
+```
+
+Padronizar dados para melhor performance
+```{r}
+data <- data[,2:18]
+max_data <- apply(data, 2, max) 
+min_data <- apply(data, 2, min)
+scaled <- data.frame(scale(data,center = min_data, scale = max_data - min_data))
+```
+
+Inclui variável explicada (target)
+```{r}
+scaled$Private <- private
+```
+
+Separando treinamento e teste:
+
+```{r}
+set.seed(0)
+index = sample(1:nrow(data),round(0.70*nrow(data)))
+train_data <- as.data.frame(scaled[index,])
+test_data <- as.data.frame(scaled[-index,])
+```
+
+Modelo rede neural com a opção linear.output=F pois agora estamos no contexto da classificação:
+
+```{r}
+set.seed(0)
+nn <- neuralnet(Private ~ .,data=train_data,hidden=c(5,4),linear.output=F)
+plot(nn)
+```
+
+Previsão:
+
+```{r}
+pr.nn <- compute(nn,test_data[,1:17])
+pr.nn$net.result <- sapply(pr.nn$net.result,round,digits=0) # aqui seria melhor usar cutoff e curva ROC
+pr.nn$net.result
+```
+
+Tabela de confusão:
+
+```{r}
+table(medido=test_data$Private,previsto=pr.nn$net.result)
+```
+
+Acurácia:
+
+```{r}
+(62+158) / (62+158+7+6)
+```
+
+árvore de classificação para compararmos
+
+```{r}
+set.seed(0)
+fit_tree <- rpart(Private ~ .,method="class", data=train_data)
+tree_predict <- predict(fit_tree,test_data,type = "class")
+table(test_data$Private,tree_predict)
+```
+
+acurácia para árvore de classificação:
+
+```{r}
+(58+159) / (58+159+11+5)
+```
+
+camada densa: Conecta cada neurônio em uma camada com todos os neurônios da camada anterior.
+Épocas: passagens completas do conjunto de dados devem ser usadas quando treinamos uma rede
+
+Muitas camadas permitem identificar relações não lineares
