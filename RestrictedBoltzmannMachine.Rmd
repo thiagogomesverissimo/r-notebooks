@@ -1,0 +1,150 @@
+---
+title: "Restricted Boltzmann Machine"
+output:
+  html_document:
+    df_print: paged
+---
+
+Rede neural não supervisionado: Restricted Boltzmann Machine
+exemplo de caso de uso: sistema de recomendação de músicas, vídeos, livros
+
+Vamos trabalhar com imagens com 28 pixels por 28 pixels que nos da 29*28=784 colunas. 
+A ideia é dimnuir essa dimensão e reconstruir a imagems com menos dimensões.
+
+Larochelle, H., Mandel, M., Pascanu, R., & Bengio, Y. (2012). Learning algorithms for the classification restricted boltzmann machine. Journal of Machine Learning Research, 13(Mar), 643-669
+
+```{r message=FALSE, warning=FALSE}
+library("devtools")
+install_github("TimoMatzen/RBM")
+library("RBM")
+```
+
+
+Vizualizar imagem:
+```{r message=FALSE, warning=FALSE}
+data(MNIST)
+image(matrix(MNIST$trainX[2, ], nrow = 28))
+```
+
+Treinando modelo:
+
+```{r}
+set.seed(0)
+train <- MNIST$trainX
+modelRBM <- RBM(x = train, 
+                n.iter = 1000, 
+                n.hidden = 100, 
+                size.minibatch = 10, 
+                plot = TRUE)
+```
+
+Reconstruindo imagens:
+
+```{r}
+set.seed(0)
+test <- MNIST$testX
+testY <- MNIST$testY
+
+ReconstructRBM(test = test[5, ], model = modelRBM)
+```
+
+```{r}
+ReconstructRBM(test = test[4, ], model = modelRBM)
+```
+
+
+Novo modelo:
+
+```{r}
+set.seed(0)
+train <- MNIST$trainX
+TrainY <- MNIST$trainY
+
+modelClassRBM <- RBM(x = train, 
+                     y = TrainY, 
+                     n.iter = 1000, 
+                     n.hidden = 100, 
+                     size.minibatch = 10)
+```
+
+predição e matriz de confusão:
+
+```{r}
+set.seed(0)
+
+test <- MNIST$testX
+TestY <- MNIST$testY
+
+p <- PredictRBM(test = test, labels = TestY, model = modelClassRBM)
+p
+```
+
+### Outro dataset Fashion:
+
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+library(RBM)
+data(Fashion)
+set.seed(0)
+```
+rótulos:
+
+- '0: T-shirt/tops 
+- '1: Trouser 
+- '2: Pullover 
+- '3: Dress 
+- '4: Coat 
+- '5: Sandal 
+- '6: Shirt 
+- '7: Sneaker 
+- '8: Bag 
+- '9: Ankle Boot
+
+```{r}
+image(matrix(Fashion$trainX[,102], nrow = 28))
+```
+
+Diminui o tamanho para melhorar processamento
+
+```{r}
+Fashion$trainX <- Fashion$trainX[,1:2000]
+Fashion$trainY <- Fashion$trainY[1:2000]
+Fashion$testX <- Fashion$testX[,1:200]
+Fashion$testY <- Fashion$testY[1:200]
+
+train <- t(Fashion$trainX)
+
+```
+
+modelo:
+
+```{r}
+modelRBM <- RBM(x = train, n.iter = 1000, n.hidden = 100, size.minibatch = 10, plot = TRUE)
+```
+Reconstrução de imagens:
+
+```{r}
+test <- t(Fashion$testX)
+
+ReconstructRBM(test = test[102,], model = modelRBM)
+```
+
+Empilhando várias máquinas de Boltzmann:
+
+```{r}
+library(devtools)
+library(RBM)
+
+set.seed(0)
+
+data(MNIST)
+train <- MNIST$trainX
+test <- MNIST$testX
+
+modStack <- StackRBM(x = train, 
+                     layers = c(100, 100, 100), 
+                     n.iter = 1000, 
+                     size.minibatch = 10)
+
+ReconstructRBM(test = test[5, ], model = modStack, layers = 3)
+```

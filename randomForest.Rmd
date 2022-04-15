@@ -1,0 +1,40 @@
+---
+title: "bootstrapping"
+output:
+  html_document:
+    df_print: paged
+---
+
+Exemplo de random forest com resposta binária:
+
+```{r message=FALSE, warning=FALSE}
+data = read.csv("data/titanic.csv")
+
+data$Survived = as.factor(data$Survived)
+data$Survived = relevel(data$Survived, ref="N")
+
+data$Pclass = as.factor(data$Pclass)
+data$Sex = as.factor(data$Sex)
+data$Embarked = as.factor(data$Embarked)
+```
+
+80% de 1´s e 20% de 2´s para separar as amostras. A probabilidade de ser 1 é 80%, de ser 2 é 20%:
+
+```{r}
+set.seed(123)
+n <- sample(1:2,size=nrow(data),replace=TRUE,prob=c(0.8,0.2))
+treino <- data[n==1,]
+teste <- data[n==2,]
+```
+
+random forest:
+```{r message=FALSE, warning=FALSE}
+library(randomForest)
+treino_rf <- randomForest::randomForest(
+  Survived ~ ., 
+  data = treino, 
+  ntree = 50,
+  mtry = 3, 
+  importance = T)
+```
+Avaliar o modelo
