@@ -427,3 +427,250 @@ ggpubr::ggarrange(boost0_O_vs_E, boost0_res,
           ncol = 2, nrow = 1)
 ```
 
+### árvore de decisão para y binária
+
+```{r}
+data = read.csv("data/semaforos.csv")
+```
+
+árvore de decisão
+
+```{r}
+CART_atrasos <- rpart(formula = atraso ~ .,
+                        data = data,
+                        control = rpart.control(minsplit = 1,
+                                                cp = 0.01,
+                                                maxdepth = 30),
+                        parms = list(split = "information"),
+                        method = "class")
+
+rpart.plot(CART_atrasos, type = 1)
+
+```
+
+Data:
+
+```{r}
+data %>% 
+  ggplot() +
+  geom_point(aes(x = distância,
+                 y = qtde_semáforos, 
+                 color = atraso, 
+                 shape = atraso), 
+             size = 2) +
+  labs(x = "Distância",
+       y = "Quantidade de Semáforos",
+       color = "Houve atraso?",
+       shape = "Houve atraso?") +
+  scale_color_viridis_d() +
+  scale_x_continuous(breaks = c(9:30)) +
+  scale_y_continuous(breaks = c(5:15)) +
+  theme_bw()
+```
+## árovre de decisão para y contínua 
+
+```{r}
+data = read.csv("data/carros.csv")
+```
+
+Separando treino e validação:
+
+```{r}
+set.seed(123)
+sample_index <- sample(x = 1:dim(data)[1],
+                       size = nrow(data) * 0.7)
+
+amostra_treino <- data[sample_index, ]
+amostra_validacao <- data[-sample_index, ]
+
+```
+
+árvore:
+```{r}
+set.seed(123)
+CART_carros <- rpart(formula = preco ~ .,data = amostra_treino)
+rpart.plot(CART_carros, type = 1)
+```
+
+```{r}
+printcp(CART_carros)
+```
+
+ Prunando a CART ---------------------------------------------------------
+
+```{r}
+prunned_carros <- prune(tree = CART_carros,
+                        cp = CART_carros$cptable[which.min(
+                          CART_carros$cptable[,"xerror"]),"CP"]
+)
+rpart.plot(prunned_carros, type = 1)
+```
+
+
+Salvando os fitted values da amostra treino 
+```{r}
+amostra_treino["fitted"] <- predict(object = prunned_carros,
+                                    newdata = amostra_treino)
+
+```
+
+
+Aderência à variável Idade
+
+```{r}
+amostra_treino %>% 
+  ggplot() +
+  geom_point(aes(x = idade, 
+                 y = preco, 
+                 color = "Amostra Treino"), 
+             alpha = 0.5) +
+  geom_smooth(aes(x = idade, 
+                  y = fitted, 
+                  color = "Fitted Values"), 
+              se = F,
+              size = 1.5) +
+  labs(color = "Legenda:",
+       x = "Idade",
+       y = "Preço") +
+  scale_color_viridis_d(option = "cividis") +
+  theme_bw()
+
+```
+
+
+Aderência à variável Ano de Montagem
+
+```{r}
+amostra_treino %>% 
+  ggplot() +
+  geom_point(aes(x = ano_montagem, 
+                 y = preco, 
+                 color = "Amostra Treino"), 
+             alpha = 0.5) +
+  geom_smooth(aes(x = ano_montagem, 
+                  y = fitted, 
+                  color = "Fitted Values"), 
+              se = F,
+              size = 1.5, method = "lm") +
+  labs(color = "Legenda:",
+       x = "Ano de Montagem",
+       y = "Preço") +
+  scale_color_viridis_d(option = "cividis") +
+  theme_bw()
+
+```
+
+Aderência à variável Peso
+
+```{r}
+amostra_treino %>% 
+  ggplot() +
+  geom_point(aes(x = peso, 
+                 y = preco, 
+                 color = "Amostra Treino"), 
+             alpha = 0.5) +
+  geom_smooth(aes(x = peso, 
+                  y = fitted, 
+                  color = "Fitted Values"), 
+              se = F,
+              size = 1.5, method = "lm") +
+  labs(color = "Legenda:",
+       x = "Peso",
+       y = "Preço") +
+  scale_color_viridis_d(option = "cividis") +
+  theme_bw()
+
+```
+
+Salvando os fitted values da amostra validação
+```{r}
+amostra_validacao["fitted"] <- predict(object = prunned_carros,
+                                       newdata = amostra_validacao)
+
+```
+
+Aderência à variável Idade
+
+```{r}
+amostra_validacao %>% 
+  ggplot() +
+  geom_point(aes(x = idade, 
+                 y = preco, 
+                 color = "Amostra Validação"), 
+             alpha = 0.5) +
+  geom_smooth(aes(x = idade, 
+                  y = fitted, 
+                  color = "Fitted Values"), 
+              se = F,
+              size = 1.5) +
+  labs(color = "Legenda:",
+       x = "Idade",
+       y = "Preço") +
+  scale_color_viridis_d(option = "cividis") +
+  theme_bw()
+
+```
+
+
+Aderência à variável Ano de Montagem
+
+```{r}
+amostra_validacao %>% 
+  ggplot() +
+  geom_point(aes(x = ano_montagem, 
+                 y = preco, 
+                 color = "Amostra Validação"), 
+             alpha = 0.5) +
+  geom_smooth(aes(x = ano_montagem, 
+                  y = fitted, 
+                  color = "Fitted Values"), 
+              se = F,
+              size = 1.5, method = "lm") +
+  labs(color = "Legenda:",
+       x = "Ano de Montagem",
+       y = "Preço") +
+  scale_color_viridis_d(option = "cividis") +
+  theme_bw()
+
+
+```
+
+
+Aderência à variável Peso
+
+```{r}
+amostra_validacao %>% 
+  ggplot() +
+  geom_point(aes(x = peso, 
+                 y = preco, 
+                 color = "Amostra Validação"), 
+             alpha = 0.5) +
+  geom_smooth(aes(x = peso, 
+                  y = fitted, 
+                  color = "Fitted Values"), 
+              se = F,
+              size = 1.5, method = "lm") +
+  labs(color = "Legenda:",
+       x = "Peso",
+       y = "Preço") +
+  scale_color_viridis_d(option = "cividis") +
+  theme_bw()
+```
+
+
+Avaliando a RMSE amostra treino:
+
+```{r}
+rmse(actual = amostra_treino$preco,
+     predicted = amostra_treino$fitted) #amostra treino
+
+```
+
+Avaliando a RMSE amostra validação:
+
+```{r}
+rmse(actual = amostra_validacao$preco,
+     predicted = amostra_validacao$fitted) #amostra validação
+
+```
+

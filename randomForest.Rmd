@@ -12,7 +12,7 @@ output:
 A junção de Bootstraping e Aggregation geram aleatoriedade. 
 Bootstraping + Aggregation = Bagging
 
-Random Forest: é um tipo de bagging que usa modelos de árvores de decisão.
+Random Forest: é um tipo de bagging que usa modelos de árvores de decisão, mas que acrescenta aleatoriedade nas escolha de variáveis preditoras em cada modelo gerado. Se y for contínua será escolhida 1/3 das variáves preditoras de forma aleatória em cada modelo, se y for categória será escolhido raiz quadrada da quantidade de variáves preditoras de forma aleatória em cada modelo.
 
 Exemplo de random forest (bagging) com resposta binária:
 
@@ -126,7 +126,7 @@ controle <- caret::trainControl(
 ```
 
 
-Especificar o grid
+Especificar o grid. Lembrando que se y for contínua será escolhida 1/3 das variáves preditoras de forma aleatória em cada modelo, se y for categória será escolhido raiz quadrada da quantidade de variáves preditoras de forma aleatória em cada modelo. Nese caso vamos tentar outras quantidades, até 10, pois temos 10 preditoras.
 
 ```{r}
 grid <- base::expand.grid(.mtry=c(1:10))
