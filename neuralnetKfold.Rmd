@@ -1,0 +1,129 @@
+---
+title: "NeuralNet"
+output: html_notebook
+---
+
+Dados de carros:
+
+```{r}
+df = read.csv("data/epa_cars.csv")
+
+cols <- c("fuel_economy_combined", 'eng_disp', 'num_cyl', 'num_gears', 'batt_capacity_ah')
+
+# função para padronizar
+range01 <- function(x){(x-min(x, na.rm=TRUE))/(max(x, na.rm=TRUE)-min(x, na.rm=TRUE))}
+
+# padronizar variaveis quantitativas
+df[cols] <- lapply(df[cols], range01)
+```
+
+
+criar a fórmula tipo y ~ x1 + x2 ... + xn para usarmos no kfold:
+
+```{r}
+n <- names(df)
+
+f_variaveis <- paste(n[-1], collapse = " + ")
+f <- as.formula(paste(n[1], " ~ ", f_variaveis))
+
+m <- model.matrix(f, data = df)
+m <- as.matrix(data.frame(m, df[, 1]))
+
+colnames(m)[28] <- "fuel_economy_combined"
+
+nomes <- colnames(m)
+f_variaveis <- paste(nomes[-28], collapse=' + ')
+f <- as.formula(paste(nomes[28], " ~ ", f_variaveis))
+```
+
+Rede neural sem kfold:
+
+```{r}
+nn <- neuralnet(f, # Fórmula
+                data=m, # dados
+                linear.output = TRUE # indica resposta contínua
+                )
+end_time <- Sys.time() # Marca o tempo de fim
+
+plot(nn)
+```
+Predição:
+
+```{r}
+library(caret)
+pred <- predict(nn, m)
+plot(x = pred, y = df$fuel_economy_combined)
+caret::postResample(pred, df$fuel_economy_combined)
+```
+
+Mesma rede neural, mas com camadas escondidas:
+
+```{r}
+nn <- neuralnet(f, data=m, hidden = c(7, 3), linear.output = TRUE)
+
+pred <- predict(nn, m)
+plot(x = pred, y = df$fuel_economy_combined)
+caret::postResample(pred, df$fuel_economy_combined)
+```
+
+montando um k-fold com 10 folds:
+
+```{r}
+N <- nrow(m)
+
+k <- 10 #número de folds
+stats <- NULL # guarda métrica de cada rodada
+m2 = m[sample(1:nrow(m)), ] # m2 é uma permutação de m para fazermos os folds
+
+for (i in 1:(k-1)){
+  ind_treino <- !seq(N)>N*(i/k) & seq(N)<=N*((i+1)/k)
+  ind_teste <- seq(N)>N*(i/k) & seq(N)<=N*((i+1)/k)
+  
+  nn <- neuralnet(f, data=m2[ind_treino,], hidden = c(7, 3), linear.output = TRUE)
+  pred <- predict(nn, m[ind_teste,])
+  stats_tmp <- caret::postResample(pred, df$fuel_economy_combined[ind_teste])
+  stats <- rbind(stats, stats_tmp)
+}
+
+stats |> colMeans()
+```
+
+CV Grid Search para 'tunar' o parâmetro decay
+
+```{r}
+nnGrid <-  expand.grid(.size=7, .decay = c(0, .005, .01, 0.015, 0.02, 0.025))
+ctrl <- caret::trainControl(method='cv')
+
+nnfit <- caret::train(f,
+                      data=m2,
+                      method='nnet',
+                      tuneGrid=nnGrid,
+                      trControl=ctrl,
+                      maxit=1000,
+                      verboseIter = FALSE
+                      )
+
+```
+
+
+```{r}
+nnfit$results
+```
+
+
+MOdelo final:
+
+```{r}
+modelo.final <- nnfit$finalModel
+
+pred <- predict(modelo.final, m)
+plot(x = pred, y = df$fuel_economy_combined)
+```
+
+```{r}
+caret::postResample(pred, df$fuel_economy_combined)
+```
+
+
+
+

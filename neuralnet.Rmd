@@ -173,3 +173,93 @@ camada densa: Conecta cada neurônio em uma camada com todos os neurônios da ca
 Épocas: passagens completas do conjunto de dados devem ser usadas quando treinamos uma rede
 
 Muitas camadas permitem identificar relações não lineares
+
+
+#### aplicando rede reunal em um exemplo de resposta contínua:
+
+Dado fake:
+
+```{r}
+library(viridis)
+library(tidyverse)
+
+x1 <- seq(0,1, length.out=1000)
+
+# y segue uma relação quadrática com estes parâmetros
+a <- 0
+b <- 12.5
+c <- -10
+
+# Gerar y
+set.seed(1729)
+y1 <- a + b*x1 + c*x1**2 + rnorm(length(x1), mean=0, sd=.1)
+df1 <- data.frame(x1, y1) # criar um dataframe
+colnames(df1) <- c('x', 'y') #renomear colunas
+
+# Gráfico dos dados gerados
+p0 <- ggplot(df1, aes(x,y)) + 
+  geom_point(aes(colour='Observado'), alpha=.5) +
+  viridis::scale_color_viridis(discrete=TRUE, begin=0, end=.85, name = "Valor") +
+  theme_bw() +
+  theme(legend.position="bottom",
+        legend.spacing.x = unit(0, 'cm'))
+p0
+
+```
+Rede neural sem camada escondida:
+
+```{r}
+set.seed(123)
+rn0 <- neuralnet::neuralnet(y ~ x, 
+                 data=df1, 
+                 threshold = 0.01,
+                 act.fct = 'logistic'
+                 )
+
+plot(rn0)
+```
+
+Previsto versus observados:
+
+```{r}
+df1['pred0'] <- predict(rn0, df1)
+boost0_O_vs_E <- ggplot(df1, aes(x,y)) + 
+  geom_point(alpha=.7, size=.5, aes(colour='Observado')) +
+  geom_path(aes(x,pred0, colour='Esperado')) + #Ploting
+  scale_color_viridis(discrete=TRUE, begin=0, end=.8, name = "Dado: ") +
+  theme_bw() +
+  labs(title="Valores observados vs esperados") +
+  scale_x_continuous(name= "x")
+
+boost0_O_vs_E
+
+```
+
+
+Rede neural com camada escondidas (3 neuronios na camada 1 e 2 na e):
+
+```{r}
+set.seed(123)
+rn1 <- neuralnet(y ~ x, 
+                 data=df1, 
+                 hidden = c(3,2))
+plot(rn1)
+```
+
+Valores esperados e observados
+
+```{r}
+df1['pred1'] <- predict(rn1, df1)
+boost0_O_vs_E <- ggplot(df1, aes(x,y)) + # gráfico base >> x vs y <<
+  geom_point(alpha=.7, size=.5, aes(colour='Observado')) +
+  geom_path(aes(x,pred1, colour='Esperado')) + # Gráfico sobreposto >> x vs pred
+  scale_color_viridis(discrete=TRUE, begin=0, end=.8, name = "Dado: ") +
+  theme_bw() +
+  theme(legend.position="bottom") +
+  labs(title="Valores observados vs esperados") +
+  scale_y_continuous(name= "y") +
+  scale_x_continuous(name= "x")
+
+boost0_O_vs_E
+```
+

@@ -1,11 +1,20 @@
 ---
-title: "bootstrapping"
+title: "randon forest"
 output:
   html_document:
     df_print: paged
 ---
 
-Exemplo de random forest com resposta binária:
+- *Bootstraping:* é uma técnica de amostragem nas observações, mas com reposição. Para cada amostragem cria-se um modelo.
+
+- *Aggregation:* Agregação de vários modelos. Podemos pegar o valor de uma métrica em particular e avalia-la em todos modelos encontrados com Bootstraping. Podemos olhar o valor da métrica mais frequente (hard voting).
+
+A junção de Bootstraping e Aggregation geram aleatoriedade. 
+Bootstraping + Aggregation = Bagging
+
+Random Forest: é um tipo de bagging que usa modelos de árvores de decisão.
+
+Exemplo de random forest (bagging) com resposta binária:
 
 ```{r message=FALSE, warning=FALSE}
 data = read.csv("data/titanic.csv")
@@ -30,11 +39,181 @@ teste <- data[n==2,]
 random forest:
 ```{r message=FALSE, warning=FALSE}
 library(randomForest)
-treino_rf <- randomForest::randomForest(
+modelo_rf <- randomForest::randomForest(
   Survived ~ ., 
   data = treino, 
   ntree = 50,
   mtry = 3, 
   importance = T)
 ```
-Avaliar o modelo
+
+Predição na base de treino:
+
+```{r}
+p_treino <- predict(modelo_rf, treino, type='prob') # Probabilidade predita
+c_treino <- predict(modelo_rf, treino)              # Classificação
+```
+
+Predição na base de teste:
+
+```{r}
+p_teste <- predict(modelo_rf, teste, type='prob')
+c_teste <- predict(modelo_rf, teste)
+```
+
+Dataframe na base de treino:
+
+```{r}
+aval_treino <- data.frame(obs=treino$Survived, 
+                             pred=c_treino,
+                             Y = p_treino[,2],
+                             N = 1-p_treino[,2])
+```
+
+Data frame na base de Teste
+
+```{r}
+aval_teste <- data.frame(obs=teste$Survived, 
+                            pred=c_teste,
+                            Y = p_teste[,2],
+                            N = 1-p_teste[,2])
+```
+
+Valor ROC base de treino:
+
+```{r}
+tcs_treino <- caret::twoClassSummary(aval_treino, lev=levels(aval_treino$obs))
+tcs_treino
+```
+
+Valor ROC base de teste:
+```{r}
+tcs_teste <- caret::twoClassSummary(aval_teste,lev=levels(aval_teste$obs))
+tcs_teste
+```
+
+Curva ROC
+
+```{r}
+library(tidyverse)
+library(memisc)
+
+
+ggplot2::ggplot(aval_teste, aes(d = obs, m = Y, colour='1')) + 
+  plotROC::geom_roc(n.cuts = 0, color="blue") +
+  plotROC::geom_roc(data=aval_treino,
+                  aes(d = obs, m = Y, colour='1'),
+                  n.cuts = 0, color = "red") +
+  scale_color_viridis_d(direction = -1, begin=0, end=.25) +
+  theme(legend.position = "none") +
+  ggtitle(paste("Curva ROC | AUC-treino=",
+              tcs_treino[1],
+              "| AUC_teste = ",
+               tcs_teste[1]))
+```
+
+# grid search + k-fold
+  
+```{r message=FALSE, warning=FALSE}
+library(caret)
+controle <- caret::trainControl(
+  method='repeatedcv', # Solicita um K-Fold com repetições
+  number=4, # Número de FOLDS (o k do k-fold)
+  repeats=2, # Número de repetições
+  search='grid', # especifica o grid-search
+  summaryFunction = twoClassSummary, # Função de avaliação de performance
+  classProbs = TRUE) # Necessário para calcular a curva ROC
+```
+
+
+Especificar o grid
+
+```{r}
+grid <- base::expand.grid(.mtry=c(1:10))
+```
+
+
+Treinar todos os modelos do grid-search com cross-validation:
+
+```{r}
+gridsearch_rf <- caret::train(Survived ~ .,         # Fórmula (todas as variáveis)
+                              data = treino,       # Base de dados
+                              method = 'rf',        # Random-forest
+                              metric='ROC',         # Escolhe o melhor por essa métrica
+                              trControl = controle, # Parâmetros de controle do algoritmo
+                              ntree=100,            # Numero de árvores
+                              tuneGrid = grid)      # Percorre o grid especificado aqui
+
+plot(gridsearch_rf)
+```
+
+```{r}
+print(gridsearch_rf)
+```
+Predição na base de treino:
+
+```{r}
+p_treino <- predict(gridsearch_rf, treino, type='prob') # Probabilidade predita
+c_treino <- predict(gridsearch_rf, treino)              # Classificação
+```
+
+Predição na base de teste:
+
+```{r}
+p_teste <- predict(gridsearch_rf, teste, type='prob')
+c_teste <- predict(gridsearch_rf, teste)
+```
+
+Dataframe na base de treino:
+
+```{r}
+aval_treino <- data.frame(obs=treino$Survived, 
+                             pred=c_treino,
+                             Y = p_treino[,2],
+                             N = 1-p_treino[,2])
+```
+
+Data frame na base de Teste
+
+```{r}
+aval_teste <- data.frame(obs=teste$Survived, 
+                            pred=c_teste,
+                            Y = p_teste[,2],
+                            N = 1-p_teste[,2])
+```
+
+Valor ROC base de treino:
+
+```{r}
+tcs_treino <- caret::twoClassSummary(aval_treino, lev=levels(aval_treino$obs))
+tcs_treino
+```
+
+Valor ROC base de teste:
+```{r}
+tcs_teste <- caret::twoClassSummary(aval_teste,lev=levels(aval_teste$obs))
+tcs_teste
+```
+
+Curva ROC
+
+```{r}
+library(tidyverse)
+library(memisc)
+
+
+ggplot2::ggplot(aval_teste, aes(d = obs, m = Y, colour='1')) + 
+  plotROC::geom_roc(n.cuts = 0, color="blue") +
+  plotROC::geom_roc(data=aval_treino,
+                  aes(d = obs, m = Y, colour='1'),
+                  n.cuts = 0, color = "red") +
+  scale_color_viridis_d(direction = -1, begin=0, end=.25) +
+  theme(legend.position = "none") +
+  ggtitle(paste("Curva ROC | AUC-treino=",
+              tcs_treino[1],
+              "| AUC_teste = ",
+               tcs_teste[1]))
+```
+
+
+  

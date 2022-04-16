@@ -1,0 +1,125 @@
+---
+title: "Boosting"
+output: html_notebook
+---
+
+- Boostring: correção sequencial de erros, ou seja, são modelos sequências que tentam melhorar os erros dos modelos anteriores (rodando os modelos diretamente nos resíduos).
+
+- Gradient Boosting: é um boosting usando modelos de árvores de decisão.
+
+
+Exemplo de Gradient Boosting com resposta binária:
+
+```{r message=FALSE, warning=FALSE}
+data = read.csv("data/titanic.csv")
+
+data$Survived = as.factor(data$Survived)
+data$Survived = relevel(data$Survived, ref="N")
+
+data$Pclass = as.factor(data$Pclass)
+data$Sex = as.factor(data$Sex)
+data$Embarked = as.factor(data$Embarked)
+```
+
+Divisão treino e teste:
+
+80% de 1´s e 20% de 2´s para separar as amostras. A probabilidade de ser 1 é 80%, de ser 2 é 20%:
+
+```{r}
+set.seed(123)
+n <- sample(1:2,size=nrow(data),replace=TRUE,prob=c(0.8,0.2))
+treino <- data[n==1,]
+teste <- data[n==2,]
+```
+
+
+```{r message=FALSE, warning=FALSE}
+library(caret)
+controle <- caret::trainControl(
+  "cv",
+  number = 10,
+  summaryFunction = twoClassSummary, # Função de avaliação de performance
+  classProbs = TRUE # Necessário para calcular a curva ROC
+)
+
+```
+
+Modelo:
+
+```{r}
+modelo_boosting <- caret::train(
+  Survived ~., 
+  data = treino, 
+  method = "xgbTree",
+  trControl = controle,
+  tuneGrid = NULL,
+  verbosity = 0)
+modelo_boosting
+```
+
+Predição na base de treino:
+
+```{r}
+p_treino <- predict(modelo_boosting, treino, type='prob') # Probabilidade predita
+c_treino <- predict(modelo_boosting, treino)              # Classificação
+```
+
+Predição na base de teste:
+
+```{r}
+p_teste <- predict(modelo_boosting, teste, type='prob')
+c_teste <- predict(modelo_boosting, teste)
+```
+
+Dataframe na base de treino:
+
+```{r}
+aval_treino <- data.frame(obs=treino$Survived, 
+                             pred=c_treino,
+                             Y = p_treino[,2],
+                             N = 1-p_treino[,2])
+```
+
+Data frame na base de Teste
+
+```{r}
+aval_teste <- data.frame(obs=teste$Survived, 
+                            pred=c_teste,
+                            Y = p_teste[,2],
+                            N = 1-p_teste[,2])
+```
+
+Valor ROC base de treino:
+
+```{r}
+tcs_treino <- caret::twoClassSummary(aval_treino, lev=levels(aval_treino$obs))
+tcs_treino
+```
+
+Valor ROC base de teste:
+```{r}
+tcs_teste <- caret::twoClassSummary(aval_teste,lev=levels(aval_teste$obs))
+tcs_teste
+```
+
+Curva ROC
+
+```{r}
+library(tidyverse)
+library(memisc)
+
+
+ggplot2::ggplot(aval_teste, aes(d = obs, m = Y, colour='1')) + 
+  plotROC::geom_roc(n.cuts = 0, color="blue") +
+  plotROC::geom_roc(data=aval_treino,
+                  aes(d = obs, m = Y, colour='1'),
+                  n.cuts = 0, color = "red") +
+  scale_color_viridis_d(direction = -1, begin=0, end=.25) +
+  theme(legend.position = "none") +
+  ggtitle(paste("Curva ROC | AUC-treino=",
+              tcs_treino[1],
+              "| AUC_teste = ",
+               tcs_teste[1]))
+```
+
+
