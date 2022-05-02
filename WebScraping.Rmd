@@ -1,0 +1,54 @@
+---
+title: "WebScraping"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+  pdf_document: default
+---
+
+```{r}
+library(rvest)
+fflch = read_html('https://www.fflch.usp.br/')
+
+fflch |> html_elements("title")
+```
+
+Somente o texto:
+
+```{r}
+fflch |>  html_elements("title") |> html_text()
+```
+
+Parágrafos:
+
+```{r}
+paragrafos = fflch |> html_elements("p") %>% html_text()
+paragrafos
+```
+
+
+```{r}
+body_text = fflch |>  html_elements("#main") %>% html_text()
+substr(body_text, start = nchar(body_text)-50, stop = nchar(body_text)-40)
+```
+
+httr para consumir https://servicodados.ibge.gov.br/api/docs/paises , paramêtros:
+
+- 77823: pib per capita
+
+```{r}
+library(httr)
+library(jsonlite)
+pib = "https://servicodados.ibge.gov.br/api/v1/paises/indicadores/77823"
+page_data <- GET(pib)
+ibge = fromJSON(rawToChar(page_data$content))
+```
+
+Breaking bad:
+
+```{r}
+bb = "https://www.breakingbadapi.com/api/character/random"
+page_data <- GET(bb)
+content(page_data, "parsed")
+```
