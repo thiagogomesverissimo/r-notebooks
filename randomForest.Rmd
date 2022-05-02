@@ -98,7 +98,6 @@ Curva ROC
 library(tidyverse)
 library(memisc)
 
-
 ggplot2::ggplot(aval_teste, aes(d = obs, m = Y, colour='1')) + 
   plotROC::geom_roc(n.cuts = 0, color="blue") +
   plotROC::geom_roc(data=aval_treino,

@@ -36,7 +36,12 @@ teste <- data[n==2,]
 ```{r message=FALSE, warning=FALSE}
 library(caret)
 controle <- caret::trainControl(
-  "cv",
+  #"cv",
+  method='repeatedcv',
+  
+  repeats=2, # Número de repetições
+  search='grid', # especifica o grid-search
+  
   number = 10,
   summaryFunction = twoClassSummary, # Função de avaliação de performance
   classProbs = TRUE # Necessário para calcular a curva ROC
@@ -51,6 +56,7 @@ modelo_boosting <- caret::train(
   Survived ~., 
   data = treino, 
   method = "xgbTree",
+  metric='ROC',
   trControl = controle,
   tuneGrid = NULL,
   verbosity = 0)
