@@ -1,0 +1,176 @@
+---
+title: "natural processing language"
+output:
+  html_document:
+    df_print: paged
+---
+
+- pacotes no R: gutenbergr,wordcloud,stringr,SnowballC,widyr,janeaustenr,stopwords
+- Token: menor unidade do texto que faz sentido
+- token n-grama: é um token com palavras agrupadas na sequência
+- stop words: palavras que consideraremos sem sentido e tiraremos da análise
+- stemming: reduzir as palavras para os radicais
+- lematização: reduzir as palavras com mesmo significado/raiz (agrupar diferentes formas da mesma palavra)  
+
+pacotes:
+
+```{r message=FALSE, warning=FALSE}
+library("tidyverse")
+library("tidytext")
+```
+
+Texto de Edgar Allan Poe - the black cat
+
+```{r}
+text <- c("From my infancy I was noted for the docility and humanity of my disposition.",
+      "My tenderness of heart was even so conspicuous as to make me the jest of my companions.",
+      "There is something in the unselfish and self-sacrificing love of a brute, which goes directly to the heart of him who has had frequent occasion to test the paltry friendship and gossamer fidelity of mere Man.")
+
+text_df = tibble(line = 1:3, text = text)
+```
+
+Criação do dataframe com os tokens, tudo foi passado para minusculo e a pontuação foi removida:
+
+```{r}
+df = text_df |> unnest_tokens(word, text)
+```
+
+stop_words são palavras do pacotes tidytext.
+Retornando o que tem em df mas não tem em stop_words:
+```{r}
+df_sem_stop_words <- df |> anti_join(stop_words)
+```
+
+
+
+
+Palavras mais comuns
+
+```{r}
+df_sem_stop_words |>  count(word, sort = TRUE)
+```
+
+Gráfico:
+
+```{r}
+df_sem_stop_words |>
+  count(word, sort = TRUE) |>
+  mutate(word = reorder(word, n)) |>
+  ggplot(aes(n, word)) +
+  geom_col() 
+```
+
+metadados de livros diversos que podemos baixar para análises:
+
+```{r}
+library("gutenbergr")
+textos <- gutenberg_metadata
+textos[16:17,]
+```
+
+Vamos usar Peter Pan e Moby Dick:
+
+```{r message=FALSE, warning=FALSE}
+livros <- gutenberg_download(c(15,16))
+```
+
+Exemplo de como retirar números:
+
+```{r}
+nums = livros |> filter(str_detect(text, "^[0-9]")) |> select(text)
+livros = livros |>  anti_join(nums, by = "text")
+```
+
+Gerando tokens e removendo stopwords:
+
+```{r}
+livros = livros |>  unnest_tokens(word, text) 
+livros = livros |>  anti_join(stop_words)
+```
+
+Moby Dick:
+
+```{r message=FALSE, warning=FALSE}
+library("wordcloud")
+library("stringr")
+library("SnowballC")
+
+moby <- livros |> filter(gutenberg_id == 15) |> count(word, sort = TRUE)
+pal <- brewer.pal(8,"Dark2") # paleta de cores
+moby |> with(wordcloud(word, n, random.order = FALSE, max.words = 50, colors=pal))
+```
+
+Word cloud com 50 palavras do Peter Pan:
+
+```{r}
+peter = livros |> filter(gutenberg_id == 16) |> count(word, sort = TRUE)
+pal = brewer.pal(8,"Dark2")
+peter |> with(wordcloud(word, n, random.order = FALSE, max.words = 50, colors=pal))
+```
+
+Aplicando a stemming (extração dos radicais) nas palavras:
+
+```{r}
+peter_stem = peter |>  mutate(stem = wordStem(word)) 
+peter_stem_count = livros |> filter(gutenberg_id == 16) |> mutate(stem = wordStem(word)) |> count(stem, sort = TRUE)
+```
+
+Baixando livro e português:
+
+```{r}
+gutenberg_pt_br = textos[textos$language == 'pt',c('gutenberg_id','title','author')]
+head(gutenberg_pt_br)
+```
+
+```{r}
+gutenberg_pt_br[gutenberg_pt_br$gutenberg_id==3333,]
+```
+
+Os Lusíadas:
+```{r}
+livro <- gutenberg_download(c(3333))
+```
+
+
+Corrigindo encoding:
+
+```{r}
+Encoding(livro$text) = "latin1"
+```
+
+
+Retirar os acentos:
+
+```{r}
+library(stringi)
+
+for (i in 1:nrow(livro)) {
+  livro$text[i] <- stri_trans_general(livro$text[i], "Latin-ASCII")
+}
+```
+
+
+Tokens:
+
+```{r}
+livro = livro |> unnest_tokens(word, text) 
+```
+
+stop words em português
+```{r}
+stopwords_pt = get_stopwords(language = 'pt')
+```
+
+Remove stopwords:
+
+```{r}
+livro = livro |> anti_join(stopwords_pt)
+```
+
+Word cloud - teste word e stem
+
+```{r}
+livro_cont = livro |> select(word) |> count(word, sort = TRUE)
+pal = brewer.pal(8,"Dark2")
+livro_cont |> with(wordcloud(word, n, random.order = FALSE, max.words = 50, colors=pal))
+```
