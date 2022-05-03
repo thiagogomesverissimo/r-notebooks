@@ -143,12 +143,8 @@ Retirar os acentos:
 
 ```{r}
 library(stringi)
-
-for (i in 1:nrow(livro)) {
-  livro$text[i] <- stri_trans_general(livro$text[i], "Latin-ASCII")
-}
+livro$text = stri_trans_general(livro$text, "Latin-ASCII")
 ```
-
 
 Tokens:
 
@@ -174,3 +170,49 @@ livro_cont = livro |> select(word) |> count(word, sort = TRUE)
 pal = brewer.pal(8,"Dark2")
 livro_cont |> with(wordcloud(word, n, random.order = FALSE, max.words = 50, colors=pal))
 ```
+
+
+Exemplo de n gramas de 2 (bigrama):
+
+```{r}
+livro <- gutenberg_download(c(3333))
+Encoding(livro$text) = "latin1"
+livro$text = stri_trans_general(livro$text, "Latin-ASCII")
+livro = livro |> unnest_tokens(word, text, token = "ngrams", n = 2)
+livro = livro |> anti_join(stopwords_pt)
+
+bigrama_contagem = livro |> count(word, sort = TRUE)
+```
+
+
+Correlação de Pearson entre palavras - widyr:
+
+```{r message=FALSE, warning=FALSE}
+library("widyr")
+library("janeaustenr")
+
+austen_section_words <- austen_books() |>
+  filter(book == "Pride & Prejudice") |>
+  mutate(section = row_number() %/% 10) |>
+  filter(section > 0) |>
+  unnest_tokens(word, text) |>
+  filter(!word %in% stop_words$word)
+```
+
+Pares de palavras:
+
+```{r}
+word_pairs <- austen_section_words |> pairwise_count(word, section, sort = TRUE)
+```
+
+Correlações:
+
+```{r}
+word_cors <- austen_section_words %>%
+  group_by(word) %>%
+  filter(n() >= 20) %>%
+  pairwise_cor(word, section, sort = TRUE)
+word_cors
+```
+
+
