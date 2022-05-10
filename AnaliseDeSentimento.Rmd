@@ -1,0 +1,231 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Objetivo: classificar o texto a partir das palavras.
+TF-IDF: importância dos tokens no corpus. 
+Bibliotecas como tidytext trazem "pesos" (polaridade) de sentimento de cada palavra, assim a soma dessas polaridades fornece uma forma de classificarmos o texto. Essa abordagem é simples, pois não consideramos o peso do sentimento das palavras considerando o contexto do texto, assim não conseguimos generalizar. 
+
+```{r}
+library(tidytext)
+library(textdata)
+get_sentiments("afinn")
+```
+
+Uma abordagem mais avançada é usar machine learning para classificar o texto a partir das features (palavras).
+
+
+
+
+
+
+
+
+Vamos comparar dois livros: 28526 e 28691:
+
+```{r}
+library("gutenbergr")
+library("tidyverse")
+textos <- gutenberg_metadata
+livros <- gutenberg_download(c(28526,28691))
+```
+
+
+Fazendo tokenização por palavras e calculando a contagem em cada livro:
+
+
+```{r}
+book_words <- livros |>
+  unnest_tokens(word, text) |>
+  count(gutenberg_id, word, sort = TRUE)
+```
+
+
+A lei de Zipf afirma que a frequência com que uma palavra aparece é inversamente proporcional a sua classificação. Criando as colunas tf e idf (importância dos tokens no corpus):
+
+```{r}
+books_tf_idf <- book_words |> bind_tf_idf(word, gutenberg_id, n)
+```
+
+no dataframe books_tf_idf podemos ver que o livro 28526 a palavra othello é mais importante, ou seja, tem maio tf_idf.
+
+Palavras mais importantes do othello:
+
+```{r}
+othello_tf_idf <- books_tf_idf %>% filter(gutenberg_id == 28526)
+```
+
+Palavras mais importante do outro livro:
+
+```{r}
+contos_tf_idf <- books_tf_idf %>% filter(gutenberg_id == 28691)
+```
+
+
+Gráfico com 15 palavras mais importantes em cada livro:
+
+```{r}
+books_graph = books_tf_idf |> 
+  group_by(gutenberg_id) |> 
+  slice_max(tf_idf, n = 15) |> 
+  ungroup() |>
+  mutate(word = reorder(word, tf_idf)) 
+books_graph
+```
+
+Histogrma:
+
+```{r}
+books_graph |> ggplot(aes(tf_idf, word, fill = gutenberg_id)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = "tf-idf", y = NULL) +
+  facet_wrap(~gutenberg_id, ncol = 2, scales = "free")
+```
+
+Baixando os scores de sentimento para cada palavra:
+
+```{r}
+get_sentiments("afinn")
+get_sentiments("bing")
+#get_sentiments("nrc") # deu erro
+```
+
+
+Algumas libs:
+```{r}
+library("lexiconPT")
+library("janeaustenr")
+library("stringr")
+library("tidyr")
+library("wordcloud")
+```
+
+
+```{r}
+tidy_books <- austen_books() |> group_by(book) |> unnest_tokens(word, text)
+```
+
+Pegando todas palavras de sentimento positivo do dicionário bing:
+
+```{r}
+bing_positive <- get_sentiments("bing") |> filter(sentiment == "positive")
+```
+
+
+Realizar inner join com o livro EMMA para entender sentimentos:
+
+```{r}
+book = tidy_books %>%  filter(book == "Emma") %>%  inner_join(bing_positive) %>%  count(word, sort = TRUE)
+
+```
+
+Usando o sistema bing para calcular o sentimento em polaridade somente do livro Persuasion.
+Quando o negativo -1 e quando o sentimento for positivo é +1 (escolha arbritária).
+No final somamos:
+
+```{r}
+jane_austen_sentiment <- tidy_books %>% inner_join(get_sentiments("bing"))
+persuasion <- jane_austen_sentiment %>% filter(book == "Persuasion")
+persuasion <- persuasion %>% mutate(
+    net_sentiment = ifelse(sentiment=="negative",-1,1))
+
+sum(persuasion$net_sentiment)
+```
+
+word cloud
+
+```{r}
+library("reshape2")
+mansfield <- tidy_books %>% filter(book == "Mansfield Park")
+```
+
+```{r}
+mansfield %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("red", "green"),
+                   scale=c(1,.5),
+                   max.words = 100)
+
+```
+
+Agora um exemplo usando uma classificação de texto usando machine learning:
+
+```{r}
+library("tidyverse")
+library("tm")
+library("e1071")
+library("gmodels")
+library("SnowballC")
+library("caret")
+```
+Lendo arquivo com twittes:
+
+```{r}
+twitter <- read.csv2("data/twitter_training.csv",sep = ",",header = FALSE)
+twitter <- twitter %>% select(V3,V4) %>% filter(V3 == c('Positive','Negative'))
+colnames(twitter) <- c("sentiment","text")
+```
+
+Limpando dados. Transformar o dataframe em VCorpus para poder ser lido pelo pacore tm.
+O pacote tm tem várias funções para lidar com o corpus:
+
+```{r}
+corpus = VCorpus(VectorSource(twitter$text)) 
+corpus = tm_map(corpus, content_transformer(tolower)) 
+corpus = tm_map(corpus, removeNumbers)
+corpus = tm_map(corpus, removePunctuation) 
+corpus = tm_map(corpus, removeWords, stopwords("english")) 
+corpus = tm_map(corpus, stemDocument)
+corpus = tm_map(corpus, stripWhitespace) 
+as.character(corpus[[1]])
+```
+
+
+Document Term Matrix
+```{r}
+dtm = DocumentTermMatrix(corpus) 
+inspect(dtm) 
+dim(dtm) 
+dtm = removeSparseTerms(dtm, 0.999) 
+inspect(dtm)
+
+convert <- function(x) 
+{
+  y <- ifelse(x > 0, 1,0)
+  y <- factor(y, levels=c(0,1), labels=c("No", "Yes"))
+  y
+}  
+  
+datanaive = apply(dtm, 2, convert)
+
+dataset = as.data.frame(as.matrix(datanaive))    
+dataset$Class = factor(twitter$sentiment)
+```
+
+Aplicando modelos naives ao dataset gerado anteriormente CONSIDERANDO AS 1000 PRIMEIRAS COLUNAS:
+
+```{r}
+set.seed(123)
+split = sample(2,nrow(dataset),prob = c(0.75,0.25),replace = TRUE)
+train_set = dataset[split == 1,]
+test_set = dataset[split == 2,] 
+    
+classifier_nb <- naiveBayes(train_set[1:1000], train_set$Class)
+```
+
+Predição:
+```{r}
+nb_pred = predict(classifier_nb, type = 'class', newdata =  test_set[1:1000])
+confusionMatrix(nb_pred,test_set$Class)
+```
+
+
+
+
+
+
+
+
