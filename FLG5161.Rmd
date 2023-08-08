@@ -1,0 +1,60 @@
+---
+title: "FLG 5161 Urban Environment"
+output:
+  html_document:
+    df_print: paged
+---
+Data: Qualar - Cetesb
+
+Dia: 2023-08-05
+
+Poluentes: PM2.5
+
+Marginal
+Av. Embaixador Macedo Soares, 12889
+Vila Leopoldina - São Paulo -
+Centro de Treinamento do Comando de
+Policiamento Rodoviário da Polícia Militar
+23k 322013
+7397977
+COORD. UTM
+(SIRGAS 2000)
+
+Ibirapuera
+Parque do Ibirapuera s/nº - setor 25
+Prq. Ibirapuera - São Paulo
+23k 330545
+7389978
+COORD. UTM
+(SIRGAS 2000)
+
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+ibirapuera = read.csv("data/ibirapuera.csv", sep=";", encoding="iso-8859-1", stringsAsFactors=FALSE, fileEncoding = "iso-8859-1")
+marginal = read.csv("data/marginal.csv", sep=";", encoding="iso-8859-1", stringsAsFactors=FALSE, fileEncoding = "iso-8859-1")
+data = cbind(hora = substring(ibirapuera$Hora,1,2), ibirapuera = ibirapuera$Média.Horária, marginal = marginal$Média.Horária)
+data = as.data.frame(data)
+```
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+ggplot() +
+  ggtitle("PM2.5 concentration in August 5, 2023 for Parque do Ibirapuera \n and Marginal Cebolão") +
+  geom_line(data = data, aes(x=hora, y=marginal, group = 1), color = "red") +
+  geom_line(data = data, aes(x=hora, y=ibirapuera, group = 1), color = "blue") +
+  geom_point(data = data, aes(x=hora, y=marginal, group = 1), shape=21, color="black", fill="red", size=2) +
+  geom_point(data = data, aes(x=hora, y=ibirapuera, group = 1), shape=21, color="black", fill="blue", size=2) +
+  xlab('Hour in August 5, 2023 (last saturday)') +
+  ylab('Microgram per metre cubic') +
+  geom_text(aes(x = 11, y = 20, label = "Marginal (Cebolão)"),color = "red") + 
+  geom_text(aes(x = 5, y = 15, label = "Parque do Ibirapuera"),color = "blue")
+ 
+ggsave("/tmp/graph.png")
+
+```
+

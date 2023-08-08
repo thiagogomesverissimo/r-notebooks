@@ -1,0 +1,22 @@
+Tipo de Rede;Tipo de Monitoramento;Tipo;Data;Hora;Código Estação;Nome Estação;Nome Parâmetro;Unidade Medida;Média Horária;Média Móvel;Válido;Dt. Amostragem;Dt. Instalação;Dt. Retirada;Concentração;Taxa
+A;CETESB;Dados Primários;05/08/2023;04:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;43;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;05:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;45;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;06:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;46;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;07:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;45;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;08:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;47;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;09:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;46;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;10:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;47;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;11:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;36;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;12:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;26;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;13:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;21;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;14:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;23;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;15:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;25;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;16:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;22;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;17:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;20;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;18:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;17;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;19:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;27;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;20:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;22;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;21:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;16;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;22:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;22;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;23:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;21;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;24:00;83;Ibirapuera;MP2.5 (Partículas Inaláveis Finas);µg/m3;22;-;Sim;-;-;-;-;-

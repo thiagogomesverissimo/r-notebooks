@@ -1,0 +1,22 @@
+Tipo de Rede;Tipo de Monitoramento;Tipo;Data;Hora;Código Estação;Nome Estação;Nome Parâmetro;Unidade Medida;Média Horária;Média Móvel;Válido;Dt. Amostragem;Dt. Instalação;Dt. Retirada;Concentração;Taxa
+A;CETESB;Dados Primários;05/08/2023;04:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;59;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;05:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;68;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;06:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;62;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;07:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;54;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;08:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;62;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;09:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;70;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;10:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;69;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;11:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;49;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;12:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;38;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;13:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;26;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;14:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;28;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;15:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;40;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;16:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;33;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;17:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;27;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;18:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;25;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;19:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;27;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;20:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;28;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;21:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;33;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;22:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;33;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;23:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;33;-;Sim;-;-;-;-;-
+A;CETESB;Dados Primários;05/08/2023;24:00;270;Marg.Tietê-Pte Remédios;MP2.5 (Partículas Inaláveis Finas);µg/m3;35;-;Sim;-;-;-;-;-
