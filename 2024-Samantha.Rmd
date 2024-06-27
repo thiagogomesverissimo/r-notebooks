@@ -1,0 +1,48 @@
+---
+title: "2024 Samantha"
+output:
+  html_document:
+    df_print: paged
+---
+
+Pacotes:
+
+```{r}
+library("MASS")
+library("rpart")
+set.seed(0)
+```
+
+Lendo o arquivo csv:
+
+```{r}
+data = read.csv("/home/thiago/Downloads/adni_wgs_ptm_complete_table")
+```
+
+Número de colunas e números de linhas:
+```{r}
+print(ncol(data))
+print(nrow(data))
+```
+
+Separando treinamento e teste de forma aleatória:
+
+```{r}
+set.seed(0)
+index = sample(1:nrow(data),round(0.70*nrow(data)))
+train_data <- as.data.frame(data[index,])
+test_data <- as.data.frame(data[-index,])
+```
+
+Rede neural:
+
+
+```{r}
+library(neuralnet)
+```
+
+Perguntas:
+
+- É necessário usar a transposta dessa tabela? pois está 8928 linhas e 1162 colunas, não era mais colunas?
+- Qual é a coluna de variável resposta?
+
