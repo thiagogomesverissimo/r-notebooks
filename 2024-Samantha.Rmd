@@ -38,7 +38,7 @@ Rede neural:
 
 
 ```{r}
-library(neuralnet)
+#library(neuralnet)
 ```
 
 Perguntas:
