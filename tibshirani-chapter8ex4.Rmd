@@ -1,0 +1,113 @@
+---
+title: "chapter8 exercise 4"
+output:
+  html_document:
+    df_print: paged
+---
+
+Uma função que me ajudará a plotar o gráfico com o hiperplano e os support vetors selecionados pelo modelo:
+```{r}
+plot_svm =  function(modelo, data){
+
+  x1 = seq(from=min(data$x1),to=max(data$x1),length=50)
+  x2 = seq(from=min(data$x2),to=max(data$x2),length=50)
+  xgrid = expand.grid(x1=x1,x2=x2)
+  ygrid=predict(modelo,xgrid)
+
+  plot(xgrid,col=ygrid,pch=20,cex=.2)
+
+  # pontos originais
+  points(data[,c('x1','x2')],col=data$y,pch=19)
+
+  # suport vectors
+  points(data[modelo$index,],pch=5,cex=2) 
+}
+```
+
+Gerar 100 observações com variável resposta categórica com 2 fatores e duas variávies explicativas com uma separação não linear entre as classes. Para a classe 1 (vermelha) vou criar valores de x1 em uma distribuição normal e de x2 em uma parábola:
+
+```{r}
+set.seed(123, sample.kind = "Rounding")
+vermelhos = sample(100,50)
+
+x1 = rnorm(100)
+x2 = 10*x1^2 + rnorm(100)
+
+# Deslocando os pontos vermelhos para cima
+x2[vermelhos] = x2[vermelhos] + 10
+
+plot(x1[vermelhos],x2[vermelhos],col="red",xlab="x1", ylab="x2",ylim=c(-10, 40),xlim=c(-2, 2))
+points(x1[-vermelhos],x2[-vermelhos],col="blue")
+```
+
+Organizando os dados em um dataframe:
+
+```{r}
+data = data.frame(x1,x2,y='blue')
+data[vermelhos,]$y = 'red'
+data$y = as.factor(data$y)
+plot(data$x1,data$x2,col=data$y,xlab="x1", ylab="x2")
+```
+Dividindo os dados em treinamento e validação:
+
+```{r}
+set.seed(5385361, sample.kind = "Rounding")
+train=sample(100,70)
+
+treinamento = data[train,]
+validacao = data[-train,]
+```
+
+Vamos ajustar um modelo linear:
+
+```{r}
+library(e1071)
+modelo.linear = svm(y~.,data=treinamento,kernel="linear",cost=10,scale = F)
+summary(modelo.linear)
+plot_svm(modelo.linear,treinamento)
+plot(modelo.linear,treinamento)
+```
+```{r}
+table(treinamento$y,predict(modelo.linear,treinamento))
+```
+o modelo linear aplicado aos próprio dados de treinamento errou em 11 casos.
+
+
+Refazendo o ajuste usando kernel polinomial: 
+```{r}
+library(e1071)
+modelo.polynomial = svm(y~.,data=treinamento,kernel="polynomial",cost=10,degree = 2,scale=F)
+summary(modelo.polynomial)
+plot_svm(modelo.polynomial,treinamento)
+```
+```{r}
+table(treinamento$y,predict(modelo.polynomial,treinamento))
+```
+9 classificações erradas
+
+Ajuste radial:
+```{r}
+library(e1071)
+modelo.radial = svm(y~.,data=treinamento,kernel="radial",cost=10,gamma = 1,scale=F)
+summary(modelo.radial)
+plot(modelo.radial,treinamento)
+```
+O modelo radial não errou nenhuma classificação nos dados de treinamento:
+```{r}
+table(treinamento$y,predict(modelo.radial,treinamento))
+```
+
+Agora aplicaremos o modelo linear nos dados de validação:
+```{r}
+table(validacao$y,predict(modelo.linear,validacao))
+```
+
+```{r}
+table(validacao$y,predict(modelo.polynomial,validacao))
+```
+
+```{r}
+table(validacao$y,predict(modelo.radial,validacao))
+```
+
+Ao que parece o kernel radial é o melhor classificador
